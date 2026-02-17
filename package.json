@@ -1,0 +1,23 @@
+{
+    "name": "ralph-telegram-bot",
+    "version": "1.0.0",
+    "description": "Telegram bot for running Ralph autonomous agent loops",
+    "type": "module",
+    "packageManager": "yarn@4.12.0",
+    "engines": {
+        "node": ">=20.0.0"
+    },
+    "scripts": {
+        "build": "tsc -b -v",
+        "start": "node dist/index.js"
+    },
+    "dependencies": {
+        "dotenv": "^16.4.7",
+        "envalid": "^8.1.1",
+        "grammy": "^1.35.0"
+    },
+    "devDependencies": {
+        "@types/node": "^22.10.0",
+        "typescript": "^5.7.2"
+    }
+}
