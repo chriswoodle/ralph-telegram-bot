@@ -425,7 +425,7 @@ export class StateMachineHandler {
           this.logger.log(
             `Ralph completed for user ${userId}, project ${session.projectDir}`,
           );
-          await ctx.reply(`🎉 *Ralph finished successfully!*\n\n${summary}`, {
+          await ctx.reply(`🎉 *Ralph finished successfully\!*\n\n${summary}`, {
             parse_mode: 'MarkdownV2',
           });
         } else {
