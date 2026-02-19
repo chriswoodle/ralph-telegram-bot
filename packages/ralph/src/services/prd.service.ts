@@ -31,7 +31,7 @@ ${summary}
 
 ---
 
-Follow Step 1 (Clarifying Questions) from the skill. Output ONLY the questions, nothing else.`;
+Follow Step 1 (Clarifying Questions) from the skill. Output ONLY the questions, nothing else. Make sure the output is valid markdown.`;
 
     const questions = await this.openRouter.chat(conversation, userMessage, signal);
     return { questions, conversation };

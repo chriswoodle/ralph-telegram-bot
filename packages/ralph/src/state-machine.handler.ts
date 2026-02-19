@@ -181,7 +181,7 @@ export class StateMachineHandler {
       await ctx.reply(
         `📝 *Clarifying Questions*\n\n${result.questions}\n\n` +
           '_Reply with your answers (e.g., "1A, 2C, 3B" or describe in full sentences)._',
-        { parse_mode: 'Markdown' },
+        { parse_mode: 'MarkdownV2' },
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
