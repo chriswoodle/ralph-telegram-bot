@@ -1,0 +1,69 @@
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Bot, type Context } from 'grammy';
+import type { AppConfig } from '../config';
+import { TelegramAuthGuard } from '../telegram.guard';
+import { CommandHandler } from '../command.handler';
+import { StateMachineHandler } from '../state-machine.handler';
+
+@Injectable()
+export class TelegramService implements OnModuleInit, OnModuleDestroy {
+    private readonly logger = new Logger(TelegramService.name);
+    private bot: Bot<Context>;
+
+    constructor(
+        private readonly configService: ConfigService<AppConfig>,
+        private readonly authGuard: TelegramAuthGuard,
+        private readonly commandHandler: CommandHandler,
+        private readonly stateMachineHandler: StateMachineHandler,
+    ) {
+        if (this.configService.get('GENERATE_SPEC')) {
+            this.bot = {
+                use: () => {
+                    return;
+                },
+                start: () => {
+                    return;
+                },
+                stop: () => {
+                    return;
+                },
+            } as any;
+            return;
+        }
+        this.bot = new Bot(this.configService.getOrThrow('TELEGRAM_BOT_TOKEN'));
+    }
+
+    async onModuleInit(): Promise<void> {
+        // Authorization middleware
+        this.bot.use((ctx, next) => {
+            if (!this.authGuard.isAuthorized(ctx.from?.id)) {
+                this.logger.log(`Unauthorized user ${ctx.from?.id} blocked`);
+                return ctx.reply('⛔ You are not authorized to use this bot.');
+            }
+            return next();
+        });
+
+        // Register handlers — commands first so /start etc. are matched before generic text
+        this.commandHandler.register(this.bot);
+        this.stateMachineHandler.register(this.bot);
+
+        this.logger.log('Starting Ralph Wiggum Bot...');
+
+        this.bot
+            .start({
+                onStart: () => {
+                    this.logger.log('Bot launched');
+                },
+            })
+            .catch((err) => {
+                this.logger.error('Failed to start:', err);
+                process.exit(1);
+            });
+    }
+
+    async onModuleDestroy(): Promise<void> {
+        this.logger.log('Shutting down...');
+        this.bot.stop();
+    }
+}
