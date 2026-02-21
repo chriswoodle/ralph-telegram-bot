@@ -8,7 +8,13 @@
     },
     "scripts": {
         "build": "yarn workspace ralph build",
-        "start": "yarn workspace ralph start"
+        "start": "yarn workspace ralph start",
+        "service:install": "sudo cp ralph.service /etc/systemd/system/ralph.service && sudo systemctl daemon-reload && sudo systemctl enable ralph",
+        "service:start": "sudo systemctl start ralph",
+        "service:stop": "sudo systemctl stop ralph",
+        "service:restart": "sudo systemctl restart ralph",
+        "service:status": "sudo systemctl status ralph",
+        "service:logs": "sudo journalctl -u ralph -f"
     },
     "workspaces": [
         "packages/*"

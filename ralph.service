@@ -1,0 +1,15 @@
+[Unit]
+Description=Ralph Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+User=chris
+WorkingDirectory=/home/chris/development/ralph-coder-bot
+Environment=PATH=/home/chris/.nvm/versions/node/v24.13.1/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/chris/.nvm/versions/node/v24.13.1/bin/yarn workspace ralph start
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
