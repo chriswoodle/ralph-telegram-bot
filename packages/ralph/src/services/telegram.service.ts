@@ -54,6 +54,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
             .start({
                 onStart: () => {
                     this.logger.log('Bot launched');
+                    this.notifyStartup();
                 },
             })
             .catch((err) => {
@@ -65,5 +66,20 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     async onModuleDestroy(): Promise<void> {
         this.logger.log('Shutting down...');
         this.bot.stop();
+    }
+
+    private async notifyStartup(): Promise<void> {
+        const allowed = this.configService.get('ALLOWED_USERS', '');
+        if (!allowed) return;
+
+        const userIds = allowed.split(',').map((s: string) => s.trim()).filter(Boolean);
+        for (const userId of userIds) {
+            try {
+                await this.bot.api.sendMessage(userId, '🤖 Ralph is back online and ready to go! Use /help to see available commands.');
+                this.logger.log(`Sent startup message to user ${userId}`);
+            } catch (err) {
+                this.logger.warn(`Failed to send startup message to user ${userId}: ${err}`);
+            }
+        }
     }
 }
