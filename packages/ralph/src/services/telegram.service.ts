@@ -75,7 +75,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
         const userIds = allowed.split(',').map((s: string) => s.trim()).filter(Boolean);
         for (const userId of userIds) {
             try {
-                await this.bot.api.sendMessage(userId, '🤖 Ralph is back online and ready to go! Use /help to see available commands.');
+                await this.bot.api.sendMessage(userId, '🤖 Ralph is back online and ready to go! Use /help to see available commands.', { disable_notification: true });
                 this.logger.log(`Sent startup message to user ${userId}`);
             } catch (err) {
                 this.logger.warn(`Failed to send startup message to user ${userId}: ${err}`);

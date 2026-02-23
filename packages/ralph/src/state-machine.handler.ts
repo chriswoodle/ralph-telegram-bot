@@ -23,6 +23,7 @@ export class StateMachineHandler {
         // "run" handler must be registered before the generic text handler
         bot.hears(/^run$/i, (ctx) => this.handleRun(ctx));
 
+        bot.on('message:document', (ctx) => this.handleDocument(ctx));
         bot.on('message:text', (ctx) => this.handleText(ctx));
     }
 
@@ -65,6 +66,93 @@ export class StateMachineHandler {
         }
     }
 
+    private async handleDocument(ctx: Context): Promise<void> {
+        const userId = ctx.from?.id;
+        if (!userId) return;
+        const session = this.sessionService.getSession(userId);
+
+        if (session.state === State.AWAITING_PRD_SUMMARY) {
+            return this.handlePrdFileUpload(ctx);
+        }
+
+        await ctx.reply(
+            'I can only accept `.md` file uploads when waiting for a PRD summary.\n' +
+            'Use /start to begin a new project or /help for available commands.',
+        );
+    }
+
+    private async handlePrdFileUpload(ctx: Context): Promise<void> {
+        const userId = ctx.from?.id;
+        if (!userId) return;
+        const session = this.sessionService.getSession(userId);
+        const doc = ctx.message?.document;
+
+        if (!doc) {
+            await ctx.reply('No document found in the message.');
+            return;
+        }
+
+        const fileName = doc.file_name ?? '';
+        if (!fileName.toLowerCase().endsWith('.md')) {
+            await ctx.reply('Only `.md` (Markdown) files are accepted. Please upload a `.md` file.');
+            return;
+        }
+
+        const MAX_SIZE = 512 * 1024;
+        if (doc.file_size && doc.file_size > MAX_SIZE) {
+            await ctx.reply('File is too large (max 512 KB). Please upload a smaller file.');
+            return;
+        }
+
+        try {
+            const file = await ctx.getFile();
+            const fileUrl = `https://api.telegram.org/file/bot${ctx.api.token}/${file.file_path}`;
+            const response = await fetch(fileUrl);
+
+            if (!response.ok) {
+                await ctx.reply('Failed to download the file from Telegram. Please try again.');
+                return;
+            }
+
+            const content = await response.text();
+
+            if (!content.trim()) {
+                await ctx.reply('The uploaded file is empty. Please upload a file with content.');
+                return;
+            }
+
+            await this.projectService.writePrdMarkdown(
+                session.projectDir!,
+                session.projectName!,
+                content,
+            );
+
+            const prdConversation = await this.prdService.createConversationFromPrd(content);
+
+            this.sessionService.updateSession(userId, {
+                state: State.REVIEWING_PRD,
+                prdMarkdown: content,
+                prdConversation,
+            });
+
+            const displayText = this.formatService.truncate(content, 3800);
+            await ctx.reply(`📋 *Uploaded PRD:*\n\n${this.formatService.escapeMarkdownV2(displayText)}`, { parse_mode: 'MarkdownV2' });
+            await ctx.reply(
+                '👆 Review the PRD above. Reply with one of:\n\n' +
+                '✅ *"approve"* — Accept and convert to Ralph format\n' +
+                '✏️ *"modify: [your changes]"* — Request specific modifications\n' +
+                '🔄 *"redo"* — Start over with a new summary',
+                { parse_mode: 'Markdown' },
+            );
+
+            this.logger.log(`User ${userId} uploaded PRD file "${fileName}" for project ${session.projectName}`);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            this.logger.error(`Error processing uploaded file for user ${userId}:`, err);
+            await ctx.reply(`Failed to process the uploaded file: ${message}`);
+        }
+    }
+
     private async handleProjectName(ctx: Context, text: string): Promise<void> {
         const userId = ctx.from?.id;
         if (!userId) return;
@@ -97,7 +185,8 @@ export class StateMachineHandler {
                 `✅ Project *${projectName}* initialized!\n` +
                 `📁 Directory: \`${projectDir}\`\n\n` +
                 'Now describe what you want to build. Give me a summary of the feature/product — ' +
-                "as detailed as you like. I'll ask clarifying questions before generating the PRD.",
+                "as detailed as you like. I'll ask clarifying questions before generating the PRD.\n\n" +
+                'Or upload a `.md` file with your PRD to skip straight to review.',
                 { parse_mode: 'Markdown' },
             );
         } catch (err) {
@@ -144,7 +233,8 @@ export class StateMachineHandler {
             await ctx.reply(
                 `✅ Selected project *${selected.name}*\n\n` +
                 "Describe the new feature you want to add. I'll ask clarifying questions " +
-                "before generating a PRD that builds on what's already there.",
+                "before generating a PRD that builds on what's already there.\n\n" +
+                'Or upload a `.md` file with your PRD to skip straight to review.',
                 { parse_mode: 'Markdown' },
             );
         } catch (err) {
@@ -331,7 +421,7 @@ export class StateMachineHandler {
             this.sessionService.updateSession(userId, { prdJson });
 
             await ctx.reply(this.formatService.formatPrdForTelegram(prdJson), {
-                parse_mode: 'Markdown',
+                parse_mode: 'MarkdownV2',
             });
             await ctx.reply(
                 `✅ PRD converted! ${prdJson.userStories.length} stories ready.\n\n` +

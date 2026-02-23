@@ -17,15 +17,15 @@ export class FormatService {
         lines.push('');
         lines.push('*User Stories:*');
 
-        for (const story of prdJson.userStories) {
+        for (const story of prdJson.userStories) {  
             const status = story.passes ? '✅' : '⬜';
             lines.push(`${status} *${esc(story.id)}:* ${esc(story.title)}`);
             lines.push(`   _${esc(story.description)}_`);
-            lines.push(`   Criteria: ${story.acceptanceCriteria.length} items`);
+            lines.push(`   Criteria: ${story.acceptanceCriteria?.length} items`);
             lines.push('');
         }
 
-        return lines.join('\n');
+        return this.escapeMarkdownV2(this.truncate(lines.join('\n'), 3800));
     }
 
     formatProgressForTelegram(progress: ProgressResult): string {

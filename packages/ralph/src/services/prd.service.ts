@@ -71,6 +71,18 @@ Apply the requested modifications to the PRD. Output ONLY the full updated markd
     return { prd, conversation };
   }
 
+  async createConversationFromPrd(prdMarkdown: string): Promise<Conversation> {
+    const skill = await this.resourceLoader.loadResource('prd-skill.md');
+    const conversation = this.openRouter.createConversation(skill);
+
+    conversation.messages.push(
+      { role: 'user', content: 'The user has uploaded a PRD document directly. Here is the content.' },
+      { role: 'assistant', content: prdMarkdown },
+    );
+
+    return conversation;
+  }
+
   async convertPrdToJson(
     prdMarkdown: string,
     projectName: string,
