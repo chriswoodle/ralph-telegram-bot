@@ -4,36 +4,30 @@ import type { ProgressResult } from '../types/project.types';
 
 @Injectable()
 export class FormatService {
-    escapeMarkdownV2(text: string): string {
-        return text.replace(/([_*[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
-    }
-
-    formatPrdForTelegram(prdJson: PrdJson): string {
+    formatPrd(prdJson: PrdJson): string {
         const lines: string[] = [];
-        const esc = (s: string) => this.escapeMarkdownV2(s);
-        lines.push(`📋 *PRD: ${esc(prdJson.project)}*`);
-        lines.push(`Branch: \`${esc(prdJson.branchName)}\``);
-        lines.push(esc(prdJson.description));
+        lines.push(`📋 *PRD: ${prdJson.project}*`);
+        lines.push(`Branch: \`${prdJson.branchName}\``);
+        lines.push(prdJson.description);
         lines.push('');
         lines.push('*User Stories:*');
 
-        for (const story of prdJson.userStories) {  
+        for (const story of prdJson.userStories) {
             const status = story.passes ? '✅' : '⬜';
-            lines.push(`${status} *${esc(story.id)}:* ${esc(story.title)}`);
-            lines.push(`   _${esc(story.description)}_`);
+            lines.push(`${status} *${story.id}:* ${story.title}`);
+            lines.push(`   _${story.description}_`);
             lines.push(`   Criteria: ${story.acceptanceCriteria?.length} items`);
             lines.push('');
         }
 
-        return this.escapeMarkdownV2(this.truncate(lines.join('\n'), 3800));
+        return this.truncate(lines.join('\n'), 3800);
     }
 
-    formatProgressForTelegram(progress: ProgressResult): string {
+    formatProgress(progress: ProgressResult): string {
         const lines: string[] = [];
-        const esc = (s: string) => this.escapeMarkdownV2(s);
         for (const story of progress.stories) {
             const icon = story.passes ? '✅' : '⬜';
-            lines.push(`${icon} ${esc(story.id)}: ${esc(story.title)}`);
+            lines.push(`${icon} ${story.id}: ${story.title}`);
         }
         return lines.join('\n');
     }
@@ -57,7 +51,6 @@ export class FormatService {
             '',
         ];
 
-        const esc = (s: string) => this.escapeMarkdownV2(s);
         for (let i = 0; i < entries.length; i++) {
             const e = entries[i];
             const time = new Date(e.timestamp).toISOString();
@@ -67,26 +60,20 @@ export class FormatService {
                     ? updateKeys
                         .map((k) => {
                             const v = (e.updates as Record<string, unknown>)[k];
-                            if (typeof v === 'string' && v.length > 40) return `${esc(k)}: "${esc(v.slice(0, 37))}..."`;
-                            return `${esc(k)}: ${esc(JSON.stringify(v))}`;
+                            if (typeof v === 'string' && v.length > 40) return `${k}: "${v.slice(0, 37)}..."`;
+                            return `${k}: ${JSON.stringify(v)}`;
                         })
                         .join(', ')
                     : '(no changes)';
 
-            lines.push(`*${i + 1}.* \`${esc(time)}\``);
+            lines.push(`*${i + 1}.* \`${time}\``);
             lines.push(
-                `   Before: state=\`${esc(e.snapshot.state)}\`${e.snapshot.projectName ? `, project=${esc(e.snapshot.projectName)}` : ''}`,
+                `   Before: state=\`${e.snapshot.state}\`${e.snapshot.projectName ? `, project=${e.snapshot.projectName}` : ''}`,
             );
             lines.push(`   Updates: ${updatesStr}`);
             lines.push('');
         }
 
         return lines.join('\n');
-    }
-
-    private progressBar(percent: number): string {
-        const filled = Math.round(percent / 10);
-        const empty = 10 - filled;
-        return `[${'█'.repeat(filled)}${'░'.repeat(empty)}]`;
     }
 }

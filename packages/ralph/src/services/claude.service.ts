@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { spawn } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AppConfig } from '../config';
@@ -12,10 +12,22 @@ interface RunClaudeOpts {
 }
 
 @Injectable()
-export class ClaudeService {
+export class ClaudeService implements OnModuleInit {
   private readonly logger = new Logger(ClaudeService.name);
+  private claudePath!: string;
 
   constructor(private readonly configService: ConfigService<AppConfig>) {}
+
+  onModuleInit() {
+    try {
+      this.claudePath = execSync('which claude', { encoding: 'utf-8' }).trim();
+      this.logger.log(`Found claude at: ${this.claudePath}`);
+    } catch {
+      throw new Error(
+        'claude CLI not found in PATH. Ensure claude is installed and available.',
+      );
+    }
+  }
 
   async runClaude(opts: RunClaudeOpts): Promise<string> {
     const { prompt, cwd, signal } = opts;
@@ -23,7 +35,7 @@ export class ClaudeService {
     this.logger.log(`Running in ${cwd}, prompt length: ${prompt.length}`);
 
     return new Promise((resolve, reject) => {
-      const child = spawn('claude', ['--print', '--dangerously-skip-permissions'], {
+      const child = spawn(this.claudePath, ['--print', '--dangerously-skip-permissions'], {
         cwd,
         stdio: ['pipe', 'pipe', 'pipe'],
         signal,

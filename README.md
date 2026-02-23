@@ -1,4 +1,4 @@
-# Ralph Wiggum Telegram Bot
+# Ralph Telegram Bot
 
 A Telegram bot for orchestrating Ralph autonomous agent loops. Plan features via PRD, review, approve, and let Ralph implement them autonomously — all from Telegram.
 
@@ -62,40 +62,73 @@ yarn build && yarn start
 
 ## Architecture
 
+The codebase uses a **pluggable steps & adapters** pattern, separating platform-specific code from business logic. Each workflow state is handled by an independent step class, and a platform adapter bridges the messaging layer.
+
 ```
 src/
-├── index.ts                 # Entry point, Grammy bot setup
-├── env.ts                   # Environment config (envalid)
-├── handlers/
-│   └── commands.ts          # Telegram command + message handlers
+├── app.module.ts              # NestJS module, wires all providers
+├── adapters/
+│   └── telegram.adapter.ts    # Translates Grammy ↔ WorkflowContext
+├── steps/                     # One file per workflow state
+│   ├── project-name.step.ts
+│   ├── project-selection.step.ts
+│   ├── prd-summary.step.ts
+│   ├── clarifications.step.ts
+│   ├── prd-review.step.ts
+│   ├── modifications.step.ts
+│   └── run.step.ts
+├── types/
+│   └── workflow.types.ts      # WorkflowContext, StepHandler, IncomingDocument
+├── workflow.router.ts         # Routes messages to the active step
+├── command.handler.ts         # Slash-command handlers (/start, /stop, etc.)
 ├── services/
-│   ├── session.ts           # Per-user state machine (persisted to disk)
-│   ├── skills.ts            # PRD generation, clarifying questions, modifications
-│   ├── openrouter.ts        # Multi-turn OpenRouter API client
-│   ├── claude.ts            # Claude CLI wrapper (Ralph iterations)
-│   ├── ralph-project.ts     # Project init, prd.json, progress
-│   ├── ralph-loop.ts        # Ralph iteration loop
-│   └── format.ts            # Telegram message formatting
+│   ├── session.service.ts     # Per-user state (persisted to disk)
+│   ├── prd.service.ts         # PRD generation, clarifying questions, modifications
+│   ├── openrouter.service.ts  # Multi-turn OpenRouter API client
+│   ├── claude.service.ts      # Claude CLI wrapper (Ralph iterations)
+│   ├── project.service.ts     # Project init, prd.json, progress
+│   ├── ralph-loop.service.ts  # Ralph iteration loop
+│   ├── telegram.service.ts    # Bot lifecycle & auth guard
+│   └── format.service.ts      # Message formatting (platform-agnostic)
 └── utils/
-    └── load-skill.ts        # Load skill prompts from resources/
+    └── load-skill.ts          # Load skill prompts from resources/
 
 resources/
-├── CLAUDE.md                # Instructions given to Ralph agent
-├── prd-skill.md             # Prompts for PRD generation flow
-└── ralph-skill.md           # Prompts for prd.json conversion
+├── CLAUDE.md                  # Instructions given to Ralph agent
+├── prd-skill.md               # Prompts for PRD generation flow
+└── ralph-skill.md             # Prompts for prd.json conversion
 ```
 
-### State Machine
+### How it fits together
+
+```
+Telegram (Grammy)
+    ↓
+TelegramAdapter          — creates a WorkflowContext from Grammy Context
+    ├─→ CommandHandler    — handles /start, /feature, /progress, /stop, etc.
+    └─→ WorkflowRouter    — looks up the user's current state
+            ↓
+        StepHandler       — the step for that state processes the message
+            ↓
+        WorkflowContext    — reply() / replyFormatted() / replySilent()
+            ↓
+TelegramAdapter          — translates replies back to Grammy API calls
+```
+
+### Workflow states
 
 ```
 IDLE
-  └→ AWAITING_PROJECT_NAME
-       └→ AWAITING_PRD_SUMMARY
-            └→ AWAITING_CLARIFICATIONS
-                 └→ REVIEWING_PRD ←─┐
-                      ├→ AWAITING_MODIFICATIONS ──┘
-                      └→ RUNNING
+  └→ AWAITING_PROJECT_NAME        (ProjectNameStep)
+       └→ AWAITING_PRD_SUMMARY    (PrdSummaryStep — text or .md upload)
+            └→ AWAITING_CLARIFICATIONS (ClarificationsStep)
+                 └→ REVIEWING_PRD ←─┐ (PrdReviewStep)
+                      ├→ AWAITING_MODIFICATIONS ──┘ (ModificationsStep)
+                      └→ RUNNING   (RunStep)
                            └→ IDLE (complete/stopped/error)
+
+/feature enters via:
+  IDLE → AWAITING_PROJECT_SELECTION (ProjectSelectionStep) → AWAITING_PRD_SUMMARY
 ```
 
 ## Configuration

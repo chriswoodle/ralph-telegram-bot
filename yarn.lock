@@ -5954,7 +5954,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jest-util@npm:30.2.0":
+"jest-util@npm:30.2.0, jest-util@npm:^30.2.0":
   version: 30.2.0
   resolution: "jest-util@npm:30.2.0"
   dependencies:
@@ -7322,6 +7322,7 @@ __metadata:
     globals: "npm:^16.0.0"
     grammy: "npm:^1.40.0"
     jest: "npm:^30.0.0"
+    jest-util: "npm:^30.2.0"
     nestjs-zod: "npm:^5.1.1"
     prettier: "npm:^3.4.2"
     reflect-metadata: "npm:^0.2.2"

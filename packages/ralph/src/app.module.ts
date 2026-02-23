@@ -14,7 +14,15 @@ import { TelegramService } from './services/telegram.service';
 import { TelegramAuthGuard } from './telegram.guard';
 import { FormatService } from './services/format.service';
 import { CommandHandler } from './command.handler';
-import { StateMachineHandler } from './state-machine.handler';
+import { TelegramAdapter } from './adapters/telegram.adapter';
+import { WorkflowRouter } from './workflow.router';
+import { ProjectNameStep } from './steps/project-name.step';
+import { ProjectSelectionStep } from './steps/project-selection.step';
+import { PrdSummaryStep } from './steps/prd-summary.step';
+import { ClarificationsStep } from './steps/clarifications.step';
+import { PrdReviewStep } from './steps/prd-review.step';
+import { ModificationsStep } from './steps/modifications.step';
+import { RunStep } from './steps/run.step';
 
 @Module({
     imports: [
@@ -37,7 +45,15 @@ import { StateMachineHandler } from './state-machine.handler';
         TelegramAuthGuard,
         FormatService,
         CommandHandler,
-        StateMachineHandler,
+        TelegramAdapter,
+        WorkflowRouter,
+        ProjectNameStep,
+        ProjectSelectionStep,
+        PrdSummaryStep,
+        ClarificationsStep,
+        PrdReviewStep,
+        ModificationsStep,
+        RunStep,
     ],
 })
 export class AppModule { }

@@ -9,6 +9,7 @@
     "scripts": {
         "build": "yarn workspace ralph build",
         "start": "yarn workspace ralph start",
+        "test": "yarn workspace ralph test",
         "service:install": "sudo cp ralph.service /etc/systemd/system/ralph.service && sudo systemctl daemon-reload && sudo systemctl enable ralph",
         "service:start": "sudo systemctl start ralph",
         "service:stop": "sudo systemctl stop ralph",

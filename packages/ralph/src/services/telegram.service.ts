@@ -3,8 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Bot, type Context } from 'grammy';
 import type { AppConfig } from '../config';
 import { TelegramAuthGuard } from '../telegram.guard';
-import { CommandHandler } from '../command.handler';
-import { StateMachineHandler } from '../state-machine.handler';
+import { TelegramAdapter } from '../adapters/telegram.adapter';
 
 @Injectable()
 export class TelegramService implements OnModuleInit, OnModuleDestroy {
@@ -14,8 +13,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     constructor(
         private readonly configService: ConfigService<AppConfig>,
         private readonly authGuard: TelegramAuthGuard,
-        private readonly commandHandler: CommandHandler,
-        private readonly stateMachineHandler: StateMachineHandler,
+        private readonly telegramAdapter: TelegramAdapter,
     ) {
         if (this.configService.get('GENERATE_SPEC')) {
             this.bot = {
@@ -44,11 +42,10 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
             return next();
         });
 
-        // Register handlers — commands first so /start etc. are matched before generic text
-        this.commandHandler.register(this.bot);
-        this.stateMachineHandler.register(this.bot);
+        // Register all handlers via the adapter
+        this.telegramAdapter.register(this.bot);
 
-        this.logger.log('Starting Ralph Wiggum Bot...');
+        this.logger.log('Starting Ralph Bot...');
 
         this.bot
             .start({
