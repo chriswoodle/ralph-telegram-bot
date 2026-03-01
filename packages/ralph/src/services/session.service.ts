@@ -74,6 +74,16 @@ export class SessionService implements OnModuleInit {
     return this.sessions;
   }
 
+  getSessionsToResume(): Map<number, Session> {
+    const resumable = new Map<number, Session>();
+    for (const [userId, session] of this.sessions) {
+      if (session.state === State.RUNNING) {
+        resumable.set(userId, session);
+      }
+    }
+    return resumable;
+  }
+
   private toSnapshot(session: Session): SessionSnapshot {
     return {
       state: session.state,
@@ -121,9 +131,7 @@ export class SessionService implements OnModuleInit {
         if (Number.isNaN(userId)) continue;
 
         if (persisted.state === State.RUNNING) {
-          this.logger.log(`User ${userId} was RUNNING — resetting to IDLE`);
-          persisted.state = State.IDLE;
-          persisted.completed = false;
+          this.logger.log(`User ${userId} was RUNNING — will resume after startup`);
         }
 
         const session: Session = {

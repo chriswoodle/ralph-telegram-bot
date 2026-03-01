@@ -18,6 +18,7 @@ interface RunRalphLoopOpts {
   projectDir: string;
   stories: UserStory[];
   signal?: AbortSignal;
+  startFromIndex?: number;
   onProgress: (status: RalphStatus) => void | Promise<void>;
 }
 
@@ -53,17 +54,17 @@ export class RalphLoopService {
     completed: boolean;
     iterations: number;
   }> {
-    const { projectDir, stories, signal, onProgress } = opts;
+    const { projectDir, stories, signal, startFromIndex = 0, onProgress } = opts;
     const totalStories = stories.length;
 
-    this.logger.log(`Starting loop for ${projectDir}, ${totalStories} stories (claude)`);
+    this.logger.log(`Starting loop for ${projectDir}, ${totalStories} stories (claude), from index ${startFromIndex}`);
 
     await this.projectService.ensureProgressFile(projectDir);
 
     const loopStartTime = Date.now();
     const iterationDurations: number[] = [];
 
-    for (let i = 0; i < totalStories; i++) {
+    for (let i = startFromIndex; i < totalStories; i++) {
       const storyNum = i + 1;
       const story = stories[i];
 

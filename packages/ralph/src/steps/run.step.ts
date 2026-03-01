@@ -24,6 +24,96 @@ export class RunStep implements StepHandler {
         );
     }
 
+    async resumeRun(ctx: WorkflowContext): Promise<void> {
+        const session = this.sessionService.getSession(ctx.userId);
+        this.logger.log(`Resuming run for user ${ctx.userId}, project ${session.projectName}`);
+
+        if (!session.prdJson || !session.projectDir) {
+            this.logger.warn(`Cannot resume user ${ctx.userId}: no PRD or project dir`);
+            this.sessionService.updateSession(ctx.userId, { state: State.IDLE });
+            return;
+        }
+
+        const stories = session.prdJson.userStories;
+        const abortController = new AbortController();
+        const startFromIndex = Math.max(0, session.currentIteration - 1);
+        const startedAt = Date.now();
+
+        this.sessionService.updateSession(ctx.userId, {
+            abortController,
+            startedAt,
+            estimatedEndAt: null,
+        });
+
+        this.logger.log(
+            `Ralph loop resuming for user ${ctx.userId}, project ${session.projectDir}, from story ${startFromIndex + 1}/${stories.length}`,
+        );
+
+        await ctx.replyFormatted(
+            `🔄 *Ralph is resuming from story ${startFromIndex + 1}/${stories.length}!*\n\n` +
+            'Use /progress to check status, /stop to cancel.',
+        );
+
+        this.ralphLoopService
+            .runRalphLoop({
+                projectDir: session.projectDir,
+                stories,
+                signal: abortController.signal,
+                startFromIndex,
+                onProgress: async (status) => {
+                    this.sessionService.updateSession(ctx.userId, {
+                        currentIteration: status.iteration,
+                        currentStory: status.currentStory
+                            ? `${status.currentStory.id}: ${status.currentStory.title}`
+                            : null,
+                        estimatedEndAt: status.estimatedEndAt,
+                    });
+
+                    try {
+                        await ctx.replySilent(status.message);
+                    } catch (err) {
+                        this.logger.warn('Failed to send progress to user:', err);
+                    }
+                },
+            })
+            .then(async (result) => {
+                this.sessionService.updateSession(ctx.userId, {
+                    state: State.IDLE,
+                    completed: result.completed,
+                    abortController: null,
+                    estimatedEndAt: null,
+                });
+
+                const finalProgress = await this.projectService.getProgress(session.projectDir!);
+                const summary = this.formatService.formatProgress(finalProgress);
+
+                if (result.completed) {
+                    this.logger.log(
+                        `Ralph completed for user ${ctx.userId}, project ${session.projectDir}`,
+                    );
+                    await ctx.replyFormatted(`🎉 *Ralph finished successfully!*\n\n${summary}`);
+                } else {
+                    this.logger.log(
+                        `Ralph stopped after ${result.iterations} stories for user ${ctx.userId}`,
+                    );
+                    await ctx.replyFormatted(
+                        `⚠️ *Ralph stopped after ${result.iterations} stories.*\n\n${summary}`,
+                    );
+                }
+            })
+            .catch(async (err) => {
+                this.sessionService.updateSession(ctx.userId, {
+                    state: State.IDLE,
+                    abortController: null,
+                    estimatedEndAt: null,
+                });
+                const message = err instanceof Error ? err.message : String(err);
+
+                this.logger.error(`Ralph fatal error for user ${ctx.userId}:`, err);
+                await ctx.reply(`❌ Ralph encountered a fatal error: ${message}`);
+            });
+    }
+
     async executeRun(ctx: WorkflowContext): Promise<void> {
         const session = this.sessionService.getSession(ctx.userId);
         this.logger.log(`User ${ctx.userId} triggered run for project ${session.projectName}`);

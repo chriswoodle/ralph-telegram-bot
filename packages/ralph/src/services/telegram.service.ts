@@ -4,6 +4,9 @@ import { Bot, type Context } from 'grammy';
 import type { AppConfig } from '../config';
 import { TelegramAuthGuard } from '../telegram.guard';
 import { TelegramAdapter } from '../adapters/telegram.adapter';
+import { SessionService } from './session.service';
+import { RunStep } from '../steps/run.step';
+import type { WorkflowContext } from '../types/workflow.types';
 
 @Injectable()
 export class TelegramService implements OnModuleInit, OnModuleDestroy {
@@ -14,6 +17,8 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
         private readonly configService: ConfigService<AppConfig>,
         private readonly authGuard: TelegramAuthGuard,
         private readonly telegramAdapter: TelegramAdapter,
+        private readonly sessionService: SessionService,
+        private readonly runStep: RunStep,
     ) {
         if (this.configService.get('GENERATE_SPEC')) {
             this.bot = {
@@ -78,5 +83,36 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
                 this.logger.warn(`Failed to send startup message to user ${userId}: ${err}`);
             }
         }
+
+        await this.resumeRunningSessions();
+    }
+
+    private async resumeRunningSessions(): Promise<void> {
+        const resumable = this.sessionService.getSessionsToResume();
+        if (resumable.size === 0) return;
+
+        this.logger.log(`Found ${resumable.size} session(s) to resume`);
+
+        for (const [userId] of resumable) {
+            const ctx = this.createSyntheticContext(userId);
+            this.runStep.resumeRun(ctx).catch((err) => {
+                this.logger.error(`Failed to resume session for user ${userId}:`, err);
+            });
+        }
+    }
+
+    private createSyntheticContext(userId: number): WorkflowContext {
+        return {
+            userId,
+            reply: async (text: string) => {
+                await this.bot.api.sendMessage(userId, text);
+            },
+            replyFormatted: async (text: string) => {
+                await this.bot.api.sendMessage(userId, text, { parse_mode: 'Markdown' });
+            },
+            replySilent: async (text: string) => {
+                await this.bot.api.sendMessage(userId, text, { disable_notification: true });
+            },
+        };
     }
 }
