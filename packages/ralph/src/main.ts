@@ -33,8 +33,8 @@ async function bootstrap() {
     });
 
     const documentBuilder = new DocumentBuilder()
-        .setTitle('Ralph API')
-        .setDescription('Ralph API Description')
+        .setTitle(`${configService.get('BOT_NAME', 'Ralph')} API`)
+        .setDescription(`${configService.get('BOT_NAME', 'Ralph')} API Description`)
         .setVersion('1.0')
 
     const document = cleanupOpenApiDoc(

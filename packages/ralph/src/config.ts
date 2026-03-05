@@ -40,6 +40,11 @@ export const configuration = () => {
             example: 'minimax/minimax-m2.5',
             default: 'minimax/minimax-m2.5',
         }),
+        BOT_NAME: str({
+            desc: 'The display name of the bot shown in messages.',
+            example: 'Ralph',
+            default: 'Ralph',
+        }),
         RALPH_PROJECTS_DIR: str({
             desc: 'The directory for the Ralph projects.',
             example: './projects',

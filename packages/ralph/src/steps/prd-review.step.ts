@@ -1,15 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SessionService } from '../services/session.service';
 import { ProjectService } from '../services/project.service';
 import { PrdService } from '../services/prd.service';
 import { FormatService } from '../services/format.service';
 import { ModificationsStep } from './modifications.step';
 import { State } from '../types/session.types';
+import type { AppConfig } from '../config';
 import type { StepHandler, WorkflowContext } from '../types/workflow.types';
 
 @Injectable()
 export class PrdReviewStep implements StepHandler {
     private readonly logger = new Logger(PrdReviewStep.name);
+    private readonly botName: string;
     readonly state = State.REVIEWING_PRD;
 
     constructor(
@@ -18,7 +21,10 @@ export class PrdReviewStep implements StepHandler {
         private readonly prdService: PrdService,
         private readonly formatService: FormatService,
         private readonly modificationsStep: ModificationsStep,
-    ) {}
+        configService: ConfigService<AppConfig>,
+    ) {
+        this.botName = configService.get('BOT_NAME', 'Ralph');
+    }
 
     async handleText(ctx: WorkflowContext, text: string): Promise<void> {
         const session = this.sessionService.getSession(ctx.userId);
@@ -55,7 +61,7 @@ export class PrdReviewStep implements StepHandler {
     private async convertAndRun(ctx: WorkflowContext): Promise<void> {
         const session = this.sessionService.getSession(ctx.userId);
 
-        await ctx.reply('🔄 Converting PRD to Ralph format...');
+        await ctx.reply(`🔄 Converting PRD to ${this.botName} format...`);
 
         try {
             this.logger.log(
@@ -73,7 +79,7 @@ export class PrdReviewStep implements StepHandler {
             await ctx.replyFormatted(this.formatService.formatPrd(prdJson));
             await ctx.replyFormatted(
                 `✅ PRD converted! ${prdJson.userStories.length} stories ready.\n\n` +
-                '🚀 Reply *"run"* to start Ralph.',
+                `🚀 Reply *"run"* to start ${this.botName}.`,
             );
 
             this.sessionService.updateSession(ctx.userId, { state: State.REVIEWING_PRD });
@@ -81,7 +87,7 @@ export class PrdReviewStep implements StepHandler {
             const message = err instanceof Error ? err.message : String(err);
             this.logger.error(`Error converting PRD for user ${ctx.userId}:`, err);
             await ctx.reply(
-                `❌ Error converting to Ralph format: ${message}\n\nPlease try approving again.`,
+                `❌ Error converting to ${this.botName} format: ${message}\n\nPlease try approving again.`,
             );
         }
     }

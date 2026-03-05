@@ -42,7 +42,7 @@ export class ProjectService {
 
   private progressHeader(): string {
     return [
-      '# Ralph Progress Log',
+      `# ${this.configService.get('BOT_NAME', 'Ralph')} Progress Log`,
       `Started: ${new Date().toISOString()}`,
       '---',
       '',

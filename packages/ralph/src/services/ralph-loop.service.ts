@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ClaudeService } from './claude.service';
 import { ResourceLoaderService } from './resource-loader.service';
 import { ProjectService } from './project.service';
+import type { AppConfig } from '../config';
 import type { UserStory } from '../types/session.types';
 
 export interface RalphStatus {
@@ -43,12 +45,16 @@ function formatTimeInfo(elapsedMs: number, eteMs?: number): string {
 @Injectable()
 export class RalphLoopService {
   private readonly logger = new Logger(RalphLoopService.name);
+  private readonly botName: string;
 
   constructor(
     private readonly claude: ClaudeService,
     private readonly resourceLoader: ResourceLoaderService,
     private readonly projectService: ProjectService,
-  ) {}
+    configService: ConfigService<AppConfig>,
+  ) {
+    this.botName = configService.get('BOT_NAME', 'Ralph');
+  }
 
   async runRalphLoop(opts: RunRalphLoopOpts): Promise<{
     completed: boolean;
@@ -75,7 +81,7 @@ export class RalphLoopService {
           type: 'aborted',
           iteration: storyNum,
           totalStories,
-          message: `Ralph loop was cancelled.\n${formatTimeInfo(elapsed)}`,
+          message: `${this.botName} loop was cancelled.\n${formatTimeInfo(elapsed)}`,
           startedAt: loopStartTime,
           estimatedEndAt: null,
         });
@@ -117,7 +123,7 @@ export class RalphLoopService {
             type: 'complete',
             iteration: storyNum,
             totalStories,
-            message: `✅ Ralph completed all tasks at story ${storyNum}/${totalStories}!\n${formatTimeInfo(elapsed)}`,
+            message: `✅ ${this.botName} completed all tasks at story ${storyNum}/${totalStories}!\n${formatTimeInfo(elapsed)}`,
             startedAt: loopStartTime,
             estimatedEndAt: null,
           });
@@ -134,7 +140,7 @@ export class RalphLoopService {
             type: 'aborted',
             iteration: storyNum,
             totalStories,
-            message: `Ralph loop was cancelled.\n${formatTimeInfo(elapsed)}`,
+            message: `${this.botName} loop was cancelled.\n${formatTimeInfo(elapsed)}`,
             startedAt: loopStartTime,
             estimatedEndAt: null,
           });
@@ -168,7 +174,7 @@ export class RalphLoopService {
       type: 'all_stories_done',
       iteration: totalStories,
       totalStories,
-      message: `✅ Ralph processed all ${totalStories} stories.\n${formatTimeInfo(elapsed)}`,
+      message: `✅ ${this.botName} processed all ${totalStories} stories.\n${formatTimeInfo(elapsed)}`,
       startedAt: loopStartTime,
       estimatedEndAt: null,
     });

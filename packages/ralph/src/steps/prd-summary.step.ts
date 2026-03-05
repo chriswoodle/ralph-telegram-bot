@@ -1,14 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SessionService } from '../services/session.service';
 import { ProjectService } from '../services/project.service';
 import { PrdService } from '../services/prd.service';
 import { FormatService } from '../services/format.service';
 import { State } from '../types/session.types';
+import type { AppConfig } from '../config';
 import type { StepHandler, WorkflowContext, IncomingDocument } from '../types/workflow.types';
 
 @Injectable()
 export class PrdSummaryStep implements StepHandler {
     private readonly logger = new Logger(PrdSummaryStep.name);
+    private readonly botName: string;
     readonly state = State.AWAITING_PRD_SUMMARY;
 
     constructor(
@@ -16,7 +19,10 @@ export class PrdSummaryStep implements StepHandler {
         private readonly projectService: ProjectService,
         private readonly prdService: PrdService,
         private readonly formatService: FormatService,
-    ) {}
+        configService: ConfigService<AppConfig>,
+    ) {
+        this.botName = configService.get('BOT_NAME', 'Ralph');
+    }
 
     async handleText(ctx: WorkflowContext, text: string): Promise<void> {
         const session = this.sessionService.getSession(ctx.userId);
@@ -91,7 +97,7 @@ export class PrdSummaryStep implements StepHandler {
             await ctx.replyFormatted(`📋 *Uploaded PRD:*\n\n${displayText}`);
             await ctx.replyFormatted(
                 '👆 Review the PRD above. Reply with one of:\n\n' +
-                '✅ *"approve"* — Accept and convert to Ralph format\n' +
+                `✅ *"approve"* — Accept and convert to ${this.botName} format\n` +
                 '✏️ *"modify: [your changes]"* — Request specific modifications\n' +
                 '🔄 *"redo"* — Start over with a new summary',
             );

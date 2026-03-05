@@ -1,19 +1,25 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SessionService } from './services/session.service';
 import { ProjectService } from './services/project.service';
 import { FormatService } from './services/format.service';
 import { State } from './types/session.types';
+import type { AppConfig } from './config';
 import type { WorkflowContext } from './types/workflow.types';
 
 @Injectable()
 export class CommandHandler {
     private readonly logger = new Logger(CommandHandler.name);
+    private readonly botName: string;
 
     constructor(
         private readonly sessionService: SessionService,
         private readonly projectService: ProjectService,
         private readonly formatService: FormatService,
-    ) {}
+        configService: ConfigService<AppConfig>,
+    ) {
+        this.botName = configService.get('BOT_NAME', 'Ralph');
+    }
 
     async handleStart(ctx: WorkflowContext): Promise<void> {
         this.logger.log(`/start from user ${ctx.userId}`);
@@ -21,7 +27,7 @@ export class CommandHandler {
         this.sessionService.updateSession(ctx.userId, { state: State.AWAITING_PROJECT_NAME });
 
         await ctx.replyFormatted(
-            '🤖 *Ralph Bot*\n\n' +
+            `🤖 *${this.botName} Bot*\n\n` +
             "I'll help you plan and execute projects using AI agents.\n\n" +
             "Let's start a new project. What would you like to name it?\n\n" +
             '_Use lowercase letters, numbers, and hyphens (e.g., `task-manager`, `my-saas-app`)_',
@@ -93,14 +99,14 @@ export class CommandHandler {
         this.logger.log(`/stop from user ${ctx.userId}, state: ${session.state}`);
 
         if (session.state !== State.RUNNING) {
-            await ctx.reply('Ralph is not currently running.');
+            await ctx.reply(`${this.botName} is not currently running.`);
             return;
         }
 
         if (session.abortController) {
             session.abortController.abort();
             this.logger.log(`Abort requested for user ${ctx.userId}`);
-            await ctx.reply('🛑 Stopping Ralph after current iteration completes...');
+            await ctx.reply(`🛑 Stopping ${this.botName} after current iteration completes...`);
         }
     }
 
@@ -140,7 +146,7 @@ export class CommandHandler {
     async handleHelp(ctx: WorkflowContext): Promise<void> {
         this.logger.log(`/help from user ${ctx.userId}`);
         await ctx.replyFormatted(
-            '🤖 *Ralph Bot — Commands*\n\n' +
+            `🤖 *${this.botName} Bot — Commands*\n\n` +
             '/start — Start a new project\n' +
             '/new — Alias for /start\n' +
             '/feature — Add a new feature to an existing project\n' +
@@ -148,7 +154,7 @@ export class CommandHandler {
             '/log — View raw progress log\n' +
             '/status — Current session state\n' +
             '/debug — View session state change history\n' +
-            '/stop — Cancel a running Ralph loop\n' +
+            `/stop — Cancel a running ${this.botName} loop\n` +
             '/help — Show this message',
         );
     }
