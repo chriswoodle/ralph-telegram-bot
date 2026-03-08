@@ -196,7 +196,12 @@ onMounted(fetchData);
           <h2 class="section-title">Task Sets <span class="count-badge">{{ taskSets.length }}</span></h2>
           <div v-if="taskSets.length === 0" class="empty-section">No task sets yet</div>
           <div v-else class="card-list">
-            <div v-for="ts in taskSets" :key="ts.id" class="card">
+            <div
+              v-for="ts in taskSets"
+              :key="ts.id"
+              class="card clickable"
+              @click="router.push({ name: 'task-building', params: { projectId, taskSetId: ts.id } })"
+            >
               <div class="card-header">
                 <span class="version-badge">v{{ ts.version }}</span>
                 <span class="card-date">{{ formatDate(ts.createdAt) }}</span>

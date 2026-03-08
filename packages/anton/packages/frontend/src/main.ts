@@ -20,6 +20,11 @@ const router = createRouter({
       name: 'prd-authoring',
       component: () => import('./views/PrdAuthoringView.vue'),
     },
+    {
+      path: '/projects/:projectId/tasks/:taskSetId',
+      name: 'task-building',
+      component: () => import('./views/TaskBuildingView.vue'),
+    },
   ],
 })
 
