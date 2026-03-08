@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
+import { APP_PIPE } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ZodValidationPipe } from 'nestjs-zod';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseService } from './services/database.service';
@@ -13,6 +15,10 @@ import { ProjectService } from './services/project.service';
 import { PrdAuthoringService } from './services/prd-authoring.service';
 import { TaskBuildingService } from './services/task-building.service';
 import { ExecutionService } from './services/execution.service';
+import { ProjectController } from './controllers/project.controller';
+import { PrdController } from './controllers/prd.controller';
+import { TaskController } from './controllers/task.controller';
+import { ExecutionController } from './controllers/execution.controller';
 
 @Module({
   imports: [
@@ -21,8 +27,14 @@ import { ExecutionService } from './services/execution.service';
     }),
     EventEmitterModule.forRoot(),
   ],
-  controllers: [AppController],
-  providers: [AppService, DatabaseService, GitService, OpenRouterService, ClaudeCliService, TelegramService, WorkflowStateMachineService, ProjectService, PrdAuthoringService, TaskBuildingService, ExecutionService],
+  controllers: [AppController, ProjectController, PrdController, TaskController, ExecutionController],
+  providers: [
+    {
+      provide: APP_PIPE,
+      useClass: ZodValidationPipe,
+    },
+    AppService, DatabaseService, GitService, OpenRouterService, ClaudeCliService, TelegramService, WorkflowStateMachineService, ProjectService, PrdAuthoringService, TaskBuildingService, ExecutionService,
+  ],
   exports: [DatabaseService, GitService, OpenRouterService, ClaudeCliService, TelegramService, WorkflowStateMachineService, ProjectService, PrdAuthoringService, TaskBuildingService, ExecutionService],
 })
 export class AppModule {}
