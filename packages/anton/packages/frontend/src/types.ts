@@ -35,6 +35,87 @@ export const stateLabels: Record<WorkflowState, string> = {
   idle: 'Idle',
 };
 
+export type PrdState = 'authoring' | 'questions_pending' | 'review_pending' | 'approved' | 'cancelled';
+
+export interface PrdEntry {
+  id: string;
+  projectId: string;
+  state: PrdState;
+  input: { text: string; assets: { fileName: string; filePath: string }[] };
+  clarifyingQuestions: { question: string; answer?: string }[];
+  prdMarkdown: string | null;
+  createdAt: string;
+  updatedAt: string;
+  approvedAt: string | null;
+}
+
+export interface UserStory {
+  id: string;
+  title: string;
+  description: string;
+  acceptanceCriteria: string[];
+  priority: number;
+  passes: boolean;
+  notes?: string;
+}
+
+export interface TaskSetEntry {
+  id: string;
+  projectId: string;
+  prdId: string;
+  version: number;
+  userStories: UserStory[];
+  createdAt: string;
+}
+
+export type ExecutionStatus = 'configuring' | 'executing' | 'completed' | 'aborted' | 'error';
+
+export interface Execution {
+  id: string;
+  projectId: string;
+  taskSetId: string;
+  status: ExecutionStatus;
+  parallelCount: number;
+  worktrees: unknown[];
+  startedAt: string | null;
+  completedAt: string | null;
+  winnerId: string | null;
+  elapsedMs: number;
+  estimatedRemainingMs: number | null;
+}
+
+export const prdStateLabels: Record<PrdState, string> = {
+  authoring: 'Authoring',
+  questions_pending: 'Questions Pending',
+  review_pending: 'Review Pending',
+  approved: 'Approved',
+  cancelled: 'Cancelled',
+};
+
+export const prdStateColors: Record<PrdState, string> = {
+  authoring: '#3b82f6',
+  questions_pending: '#8b5cf6',
+  review_pending: '#f59e0b',
+  approved: '#22c55e',
+  cancelled: '#6b7280',
+};
+
+export const executionStatusLabels: Record<ExecutionStatus, string> = {
+  configuring: 'Configuring',
+  executing: 'Executing',
+  completed: 'Completed',
+  aborted: 'Aborted',
+  error: 'Error',
+};
+
+export const executionStatusColors: Record<ExecutionStatus, string> = {
+  configuring: '#6366f1',
+  executing: '#ef4444',
+  completed: '#22c55e',
+  aborted: '#f59e0b',
+  error: '#f38ba8',
+};
+
 export const stateColors: Record<WorkflowState, string> = {
   created: '#6b7280',
   prd_authoring: '#3b82f6',
