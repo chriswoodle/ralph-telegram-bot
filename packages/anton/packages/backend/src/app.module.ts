@@ -12,6 +12,7 @@ import { WorkflowStateMachineService } from './services/workflow-state-machine.s
 import { ProjectService } from './services/project.service';
 import { PrdAuthoringService } from './services/prd-authoring.service';
 import { TaskBuildingService } from './services/task-building.service';
+import { ExecutionService } from './services/execution.service';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { TaskBuildingService } from './services/task-building.service';
     EventEmitterModule.forRoot(),
   ],
   controllers: [AppController],
-  providers: [AppService, DatabaseService, GitService, OpenRouterService, ClaudeCliService, TelegramService, WorkflowStateMachineService, ProjectService, PrdAuthoringService, TaskBuildingService],
-  exports: [DatabaseService, GitService, OpenRouterService, ClaudeCliService, TelegramService, WorkflowStateMachineService, ProjectService, PrdAuthoringService, TaskBuildingService],
+  providers: [AppService, DatabaseService, GitService, OpenRouterService, ClaudeCliService, TelegramService, WorkflowStateMachineService, ProjectService, PrdAuthoringService, TaskBuildingService, ExecutionService],
+  exports: [DatabaseService, GitService, OpenRouterService, ClaudeCliService, TelegramService, WorkflowStateMachineService, ProjectService, PrdAuthoringService, TaskBuildingService, ExecutionService],
 })
 export class AppModule {}
