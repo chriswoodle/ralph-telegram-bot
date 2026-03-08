@@ -15,6 +15,11 @@ const router = createRouter({
       name: 'project-detail',
       component: () => import('./views/ProjectDetailView.vue'),
     },
+    {
+      path: '/projects/:projectId/prds/:prdId',
+      name: 'prd-authoring',
+      component: () => import('./views/PrdAuthoringView.vue'),
+    },
   ],
 })
 

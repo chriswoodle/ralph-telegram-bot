@@ -15,6 +15,7 @@ const taskSets = ref<TaskSetEntry[]>([]);
 const executions = ref<Execution[]>([]);
 const loading = ref(true);
 const error = ref('');
+const startingPrd = ref(false);
 
 const workflowSteps: { state: WorkflowState; label: string }[] = [
   { state: 'created', label: 'Created' },
@@ -71,6 +72,19 @@ async function fetchData() {
     error.value = e instanceof Error ? e.message : 'Failed to load project';
   } finally {
     loading.value = false;
+  }
+}
+
+async function startNewPrd() {
+  startingPrd.value = true;
+  try {
+    const res = await api.prdControllerStartAuthoring(projectId);
+    const newPrd = res.data as unknown as PrdEntry;
+    router.push({ name: 'prd-authoring', params: { projectId, prdId: newPrd.id } });
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : 'Failed to start PRD';
+  } finally {
+    startingPrd.value = false;
   }
 }
 
@@ -140,10 +154,20 @@ onMounted(fetchData);
 
         <!-- PRDs -->
         <section class="section">
-          <h2 class="section-title">PRDs <span class="count-badge">{{ prds.length }}</span></h2>
+          <div class="section-header">
+            <h2 class="section-title">PRDs <span class="count-badge">{{ prds.length }}</span></h2>
+            <button class="start-prd-btn" @click="startNewPrd" :disabled="startingPrd">
+              {{ startingPrd ? 'Starting...' : '+ New PRD' }}
+            </button>
+          </div>
           <div v-if="prds.length === 0" class="empty-section">No PRDs yet</div>
           <div v-else class="card-list">
-            <div v-for="prd in prds" :key="prd.id" class="card">
+            <div
+              v-for="prd in prds"
+              :key="prd.id"
+              class="card clickable"
+              @click="router.push({ name: 'prd-authoring', params: { projectId, prdId: prd.id } })"
+            >
               <div class="card-header">
                 <span
                   class="state-badge small"
@@ -475,8 +499,43 @@ onMounted(fetchData);
   transition: border-color 0.15s;
 }
 
+.card.clickable {
+  cursor: pointer;
+}
+
 .card:hover {
   border-color: #45475a;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.section-header .section-title {
+  margin: 0;
+}
+
+.start-prd-btn {
+  background: #89b4fa;
+  color: #11111b;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.start-prd-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.start-prd-btn:not(:disabled):hover {
+  opacity: 0.85;
 }
 
 .card-header {
