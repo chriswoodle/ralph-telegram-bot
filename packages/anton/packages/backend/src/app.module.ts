@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseService } from './services/database.service';
+import { GitService } from './services/git.service';
 import { OpenRouterService } from './services/openrouter.service';
 
 @Module({
@@ -12,7 +13,7 @@ import { OpenRouterService } from './services/openrouter.service';
     }),
   ],
   controllers: [AppController],
-  providers: [AppService, DatabaseService, OpenRouterService],
-  exports: [DatabaseService, OpenRouterService],
+  providers: [AppService, DatabaseService, GitService, OpenRouterService],
+  exports: [DatabaseService, GitService, OpenRouterService],
 })
 export class AppModule {}
