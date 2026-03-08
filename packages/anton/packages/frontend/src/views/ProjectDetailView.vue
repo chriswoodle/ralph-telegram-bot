@@ -236,7 +236,12 @@ onMounted(fetchData);
           <h2 class="section-title">Executions <span class="count-badge">{{ executions.length }}</span></h2>
           <div v-if="executions.length === 0" class="empty-section">No executions yet</div>
           <div v-else class="card-list">
-            <div v-for="exec in executions" :key="exec.id" class="card">
+            <div
+              v-for="exec in executions"
+              :key="exec.id"
+              class="card clickable"
+              @click="router.push({ name: 'execution', params: { projectId, executionId: exec.id } })"
+            >
               <div class="card-header">
                 <span
                   class="state-badge small"

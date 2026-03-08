@@ -70,13 +70,35 @@ export interface TaskSetEntry {
 
 export type ExecutionStatus = 'configuring' | 'executing' | 'completed' | 'aborted' | 'error';
 
+export type StoryExecutionStatus = 'queued' | 'in_progress' | 'completed' | 'error';
+
+export interface StoryProgress {
+  storyId: string;
+  status: StoryExecutionStatus;
+  startedAt: string | null;
+  completedAt: string | null;
+  error?: string | null;
+}
+
+export interface WorktreeStatus {
+  id: string;
+  branch: string;
+  worktreePath: string;
+  status: StoryExecutionStatus;
+  storyProgress: StoryProgress[];
+  elapsedMs: number;
+  estimatedRemainingMs: number | null;
+  logPath: string | null;
+  errors: string[];
+}
+
 export interface Execution {
   id: string;
   projectId: string;
   taskSetId: string;
   status: ExecutionStatus;
   parallelCount: number;
-  worktrees: unknown[];
+  worktrees: WorktreeStatus[];
   startedAt: string | null;
   completedAt: string | null;
   winnerId: string | null;
@@ -114,6 +136,20 @@ export const executionStatusColors: Record<ExecutionStatus, string> = {
   completed: '#22c55e',
   aborted: '#f59e0b',
   error: '#f38ba8',
+};
+
+export const storyStatusColors: Record<StoryExecutionStatus, string> = {
+  queued: '#6c7086',
+  in_progress: '#89b4fa',
+  completed: '#a6e3a1',
+  error: '#f38ba8',
+};
+
+export const storyStatusLabels: Record<StoryExecutionStatus, string> = {
+  queued: 'Queued',
+  in_progress: 'In Progress',
+  completed: 'Completed',
+  error: 'Error',
 };
 
 export const stateColors: Record<WorkflowState, string> = {

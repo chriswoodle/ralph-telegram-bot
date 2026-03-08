@@ -25,6 +25,11 @@ const router = createRouter({
       name: 'task-building',
       component: () => import('./views/TaskBuildingView.vue'),
     },
+    {
+      path: '/projects/:projectId/executions/:executionId',
+      name: 'execution',
+      component: () => import('./views/ExecutionView.vue'),
+    },
   ],
 })
 
