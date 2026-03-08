@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { DatabaseService } from './services/database.service';
 import { GitService } from './services/git.service';
 import { OpenRouterService } from './services/openrouter.service';
+import { ClaudeCliService } from './services/claude-cli.service';
 
 @Module({
   imports: [
@@ -13,7 +14,7 @@ import { OpenRouterService } from './services/openrouter.service';
     }),
   ],
   controllers: [AppController],
-  providers: [AppService, DatabaseService, GitService, OpenRouterService],
-  exports: [DatabaseService, GitService, OpenRouterService],
+  providers: [AppService, DatabaseService, GitService, OpenRouterService, ClaudeCliService],
+  exports: [DatabaseService, GitService, OpenRouterService, ClaudeCliService],
 })
 export class AppModule {}
