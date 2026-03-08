@@ -10,6 +10,7 @@ import { ClaudeCliService } from './services/claude-cli.service';
 import { TelegramService } from './services/telegram.service';
 import { WorkflowStateMachineService } from './services/workflow-state-machine.service';
 import { ProjectService } from './services/project.service';
+import { PrdAuthoringService } from './services/prd-authoring.service';
 
 @Module({
   imports: [
@@ -19,7 +20,7 @@ import { ProjectService } from './services/project.service';
     EventEmitterModule.forRoot(),
   ],
   controllers: [AppController],
-  providers: [AppService, DatabaseService, GitService, OpenRouterService, ClaudeCliService, TelegramService, WorkflowStateMachineService, ProjectService],
-  exports: [DatabaseService, GitService, OpenRouterService, ClaudeCliService, TelegramService, WorkflowStateMachineService, ProjectService],
+  providers: [AppService, DatabaseService, GitService, OpenRouterService, ClaudeCliService, TelegramService, WorkflowStateMachineService, ProjectService, PrdAuthoringService],
+  exports: [DatabaseService, GitService, OpenRouterService, ClaudeCliService, TelegramService, WorkflowStateMachineService, ProjectService, PrdAuthoringService],
 })
 export class AppModule {}
