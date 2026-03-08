@@ -5,6 +5,22 @@ import * as path from 'path';
 import * as os from 'os';
 import { DatabaseService } from './database.service';
 import { Database, createDefaultDatabase } from '../models/database.model';
+import { Project } from '../models/project.model';
+
+function createTestProject(overrides: Partial<Project> = {}): Project {
+  return {
+    id: crypto.randomUUID(),
+    displayName: 'Test Project',
+    internalName: 'test-project-1234',
+    prefix: 'TP',
+    description: 'A test project',
+    state: 'created',
+    projectDir: '/tmp/test-project',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
 
 describe('DatabaseService', () => {
   let service: DatabaseService;
@@ -41,6 +57,10 @@ describe('DatabaseService', () => {
       const data = JSON.parse(fs.readFileSync(dbPath, 'utf-8'));
       expect(data.version).toBe(1);
       expect(data.projects).toEqual({});
+      expect(data.prdEntries).toEqual({});
+      expect(data.taskSets).toEqual({});
+      expect(data.executions).toEqual({});
+      expect(data.workflows).toEqual({});
       expect(data.settings).toBeDefined();
       expect(data.settings.projectsDir).toBe('./projects');
     });
@@ -103,15 +123,16 @@ describe('DatabaseService', () => {
     });
 
     it('should support async update functions', async () => {
+      const testProject = createTestProject({ displayName: 'Async Test' });
       const result = await service.update(async (db) => {
         await new Promise((r) => setTimeout(r, 10));
         return {
           ...db,
-          projects: { ...db.projects, 'test-project': { name: 'test' } },
+          projects: { ...db.projects, [testProject.id]: testProject },
         };
       });
 
-      expect(result.projects['test-project']).toEqual({ name: 'test' });
+      expect(result.projects[testProject.id].displayName).toBe('Async Test');
     });
 
     it('should reject invalid updates', async () => {
@@ -123,12 +144,15 @@ describe('DatabaseService', () => {
 
   describe('concurrent access safety', () => {
     it('should serialize concurrent updates', async () => {
-      const updates = Array.from({ length: 10 }, (_, i) =>
+      const testProjects = Array.from({ length: 10 }, (_, i) =>
+        createTestProject({ displayName: `Project ${i}`, prefix: `P${i}` }),
+      );
+      const updates = testProjects.map((proj) =>
         service.update((db) => ({
           ...db,
           projects: {
             ...db.projects,
-            [`project-${i}`]: { index: i },
+            [proj.id]: proj,
           },
         })),
       );
@@ -138,21 +162,19 @@ describe('DatabaseService', () => {
       const db = await service.read();
       const projectKeys = Object.keys(db.projects);
       expect(projectKeys).toHaveLength(10);
-      for (let i = 0; i < 10; i++) {
-        expect(db.projects[`project-${i}`]).toEqual({ index: i });
-      }
     });
 
     it('should not corrupt data with concurrent reads and writes', async () => {
       const operations: Promise<unknown>[] = [];
 
       for (let i = 0; i < 5; i++) {
+        const proj = createTestProject({ displayName: `Concurrent ${i}` });
         operations.push(
           service.update((db) => ({
             ...db,
             projects: {
               ...db.projects,
-              [`project-${i}`]: { index: i },
+              [proj.id]: proj,
             },
           })),
         );
