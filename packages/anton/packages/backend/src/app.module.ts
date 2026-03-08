@@ -11,6 +11,7 @@ import { TelegramService } from './services/telegram.service';
 import { WorkflowStateMachineService } from './services/workflow-state-machine.service';
 import { ProjectService } from './services/project.service';
 import { PrdAuthoringService } from './services/prd-authoring.service';
+import { TaskBuildingService } from './services/task-building.service';
 
 @Module({
   imports: [
@@ -20,7 +21,7 @@ import { PrdAuthoringService } from './services/prd-authoring.service';
     EventEmitterModule.forRoot(),
   ],
   controllers: [AppController],
-  providers: [AppService, DatabaseService, GitService, OpenRouterService, ClaudeCliService, TelegramService, WorkflowStateMachineService, ProjectService, PrdAuthoringService],
-  exports: [DatabaseService, GitService, OpenRouterService, ClaudeCliService, TelegramService, WorkflowStateMachineService, ProjectService, PrdAuthoringService],
+  providers: [AppService, DatabaseService, GitService, OpenRouterService, ClaudeCliService, TelegramService, WorkflowStateMachineService, ProjectService, PrdAuthoringService, TaskBuildingService],
+  exports: [DatabaseService, GitService, OpenRouterService, ClaudeCliService, TelegramService, WorkflowStateMachineService, ProjectService, PrdAuthoringService, TaskBuildingService],
 })
 export class AppModule {}
