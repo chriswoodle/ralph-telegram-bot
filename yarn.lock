@@ -85,6 +85,48 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@anton/backend@workspace:packages/anton/packages/backend":
+  version: 0.0.0-use.local
+  resolution: "@anton/backend@workspace:packages/anton/packages/backend"
+  dependencies:
+    "@nestjs/cli": "npm:^11.0.0"
+    "@nestjs/common": "npm:^11.1.13"
+    "@nestjs/config": "npm:^4.0.3"
+    "@nestjs/core": "npm:^11.1.13"
+    "@nestjs/platform-fastify": "npm:^11.1.13"
+    "@nestjs/schematics": "npm:^11.0.0"
+    "@nestjs/swagger": "npm:^11.2.6"
+    "@nestjs/testing": "npm:^11.0.1"
+    "@types/jest": "npm:^30.0.0"
+    "@types/node": "npm:^22.10.7"
+    fastify: "npm:^5.7.4"
+    jest: "npm:^30.0.0"
+    nestjs-zod: "npm:^5.1.1"
+    reflect-metadata: "npm:^0.2.2"
+    rxjs: "npm:^7.8.1"
+    ts-jest: "npm:^29.2.5"
+    ts-node: "npm:^10.9.2"
+    tsconfig-paths: "npm:^4.2.0"
+    typescript: "npm:^5.7.3"
+    zod: "npm:^4.3.6"
+  languageName: unknown
+  linkType: soft
+
+"@anton/frontend@workspace:packages/anton/packages/frontend":
+  version: 0.0.0-use.local
+  resolution: "@anton/frontend@workspace:packages/anton/packages/frontend"
+  dependencies:
+    "@types/node": "npm:^22.10.7"
+    "@vitejs/plugin-vue": "npm:^6.0.2"
+    "@vue/tsconfig": "npm:^0.8.1"
+    typescript: "npm:~5.9.3"
+    vite: "npm:^7.3.1"
+    vue: "npm:^3.5.25"
+    vue-router: "npm:^4.5.1"
+    vue-tsc: "npm:^3.1.5"
+  languageName: unknown
+  linkType: soft
+
 "@babel/code-frame@npm:^7.0.0, @babel/code-frame@npm:^7.16.7, @babel/code-frame@npm:^7.27.1, @babel/code-frame@npm:^7.28.6, @babel/code-frame@npm:^7.29.0":
   version: 7.29.0
   resolution: "@babel/code-frame@npm:7.29.0"
@@ -2858,6 +2900,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@vue/devtools-api@npm:^6.6.4":
+  version: 6.6.4
+  resolution: "@vue/devtools-api@npm:6.6.4"
+  checksum: 10c0/0a993ae23618166e1bee5a7c14cebd8312752b93c143cbdd48fb2d0f7ade070d0e6baf757cd920d4681fef8f9acf29515162160f38cc7410f9a684d2df21b6de
+  languageName: node
+  linkType: hard
+
 "@vue/language-core@npm:3.2.4":
   version: 3.2.4
   resolution: "@vue/language-core@npm:3.2.4"
@@ -3319,6 +3368,12 @@ __metadata:
   checksum: 10c0/cd6a7a681ecd36e72e0d79c1e34f1f3bcb1b15bcbb6f0f8969b4228062d3bfebbef468e09771b00d93b2294370b34f707599d4a113542a876de26823b795b5d2
   languageName: node
   linkType: hard
+
+"anton@workspace:packages/anton":
+  version: 0.0.0-use.local
+  resolution: "anton@workspace:packages/anton"
+  languageName: unknown
+  linkType: soft
 
 "anymatch@npm:^3.1.3":
   version: 3.1.3
@@ -8784,6 +8839,17 @@ __metadata:
   version: 3.1.0
   resolution: "vscode-uri@npm:3.1.0"
   checksum: 10c0/5f6c9c10fd9b1664d71fab4e9fbbae6be93c7f75bb3a1d9d74399a88ab8649e99691223fd7cef4644376cac6e94fa2c086d802521b9a8e31c5af3e60f0f35624
+  languageName: node
+  linkType: hard
+
+"vue-router@npm:^4.5.1":
+  version: 4.6.4
+  resolution: "vue-router@npm:4.6.4"
+  dependencies:
+    "@vue/devtools-api": "npm:^6.6.4"
+  peerDependencies:
+    vue: ^3.5.0
+  checksum: 10c0/9dcbe1124f1f444ae263ca37914829eea1ebff3feaa182559efee611dfd4436bbebe0ebffdcb60e37fecfb2fbdc691346df00996eeba708485e9ea9b8a7dd193
   languageName: node
   linkType: hard
 
