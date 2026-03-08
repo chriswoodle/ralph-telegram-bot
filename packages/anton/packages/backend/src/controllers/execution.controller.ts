@@ -4,9 +4,13 @@ import {
   Post,
   Param,
   Body,
+  Sse,
+  MessageEvent,
 } from '@nestjs/common';
+import { Observable } from 'rxjs';
 import { z } from 'zod';
 import { createZodDto } from 'nestjs-zod';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ExecutionService } from '../services/execution.service';
 
 const ConfigureExecutionSchema = z.object({
@@ -24,7 +28,40 @@ class PickWinnerDto extends createZodDto(PickWinnerSchema) {}
 
 @Controller('api/projects/:projectId/executions')
 export class ExecutionController {
-  constructor(private readonly executionService: ExecutionService) {}
+  constructor(
+    private readonly executionService: ExecutionService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
+
+  @Sse(':executionId/events')
+  events(
+    @Param('projectId') projectId: string,
+    @Param('executionId') executionId: string,
+  ): Observable<MessageEvent> {
+    return new Observable<MessageEvent>((subscriber) => {
+      const handler = (payload: {
+        projectId: string;
+        executionId: string;
+        event: Record<string, unknown>;
+      }) => {
+        if (
+          payload.projectId === projectId &&
+          payload.executionId === executionId
+        ) {
+          subscriber.next({ data: payload.event });
+        }
+      };
+
+      this.eventEmitter.on('execution.event', handler);
+
+      // Send initial heartbeat so the client knows the connection is alive
+      subscriber.next({ data: { type: 'connected' } });
+
+      return () => {
+        this.eventEmitter.off('execution.event', handler);
+      };
+    });
+  }
 
   @Post('configure')
   async configure(

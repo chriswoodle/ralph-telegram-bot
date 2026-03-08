@@ -19,6 +19,7 @@ const activeTab = ref(0);
 const expandedLogs = ref<Set<string>>(new Set());
 
 let pollInterval: ReturnType<typeof setInterval> | null = null;
+let eventSource: EventSource | null = null;
 
 function formatDuration(ms: number): string {
   const seconds = Math.floor(ms / 1000);
@@ -48,7 +49,42 @@ async function fetchExecution() {
   }
 }
 
+function connectSSE() {
+  if (!execution.value) return;
+  const isActive = execution.value.status === 'executing' || execution.value.status === 'configuring';
+  if (!isActive) return;
+
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+  const url = `${baseUrl}/api/projects/${projectId.value}/executions/${executionId.value}/events`;
+
+  eventSource = new EventSource(url);
+
+  eventSource.onmessage = async () => {
+    // On any SSE event, re-fetch the full execution state
+    await fetchExecution();
+
+    // Stop SSE if execution is no longer active
+    if (execution.value && !['executing', 'configuring'].includes(execution.value.status)) {
+      closeSSE();
+    }
+  };
+
+  eventSource.onerror = () => {
+    // On SSE error, fall back to polling
+    closeSSE();
+    startPolling();
+  };
+}
+
+function closeSSE() {
+  if (eventSource) {
+    eventSource.close();
+    eventSource = null;
+  }
+}
+
 function startPolling() {
+  if (pollInterval) return;
   pollInterval = setInterval(async () => {
     if (execution.value && (execution.value.status === 'executing' || execution.value.status === 'configuring')) {
       await fetchExecution();
@@ -123,10 +159,11 @@ const isReviewable = computed(() => {
 
 onMounted(async () => {
   await fetchExecution();
-  startPolling();
+  connectSSE();
 });
 
 onUnmounted(() => {
+  closeSSE();
   if (pollInterval) clearInterval(pollInterval);
 });
 </script>
