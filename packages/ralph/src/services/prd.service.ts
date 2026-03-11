@@ -106,10 +106,28 @@ Convert the PRD above to prd.json format. Output ONLY valid JSON, no markdown fe
     const output = await this.openRouter.chat(conversation, userMessage, signal);
 
     let jsonStr = output.trim();
-    if (jsonStr.startsWith('```')) {
+
+    // Extract JSON from markdown fences if present (handles extra text around fences)
+    const fenceMatch = jsonStr.match(/```(?:json)?\s*\n([\s\S]*?)\n\s*```/);
+    if (fenceMatch) {
+      jsonStr = fenceMatch[1].trim();
+    } else if (jsonStr.startsWith('```')) {
       jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
     }
 
-    return JSON.parse(jsonStr) as PrdJson;
+    // As a last resort, try to extract a JSON object from the output
+    if (!jsonStr.startsWith('{') && !jsonStr.startsWith('[')) {
+      const objectMatch = jsonStr.match(/(\{[\s\S]*\})/);
+      if (objectMatch) {
+        jsonStr = objectMatch[1];
+      }
+    }
+
+    try {
+      return JSON.parse(jsonStr) as PrdJson;
+    } catch (e) {
+      this.logger.error(`Failed to parse LLM output as JSON. Raw output:\n${output.substring(0, 500)}`);
+      throw new Error('LLM returned invalid JSON. Please try again.');
+    }
   }
 }
