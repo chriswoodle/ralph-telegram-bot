@@ -54,12 +54,17 @@ export class ProjectService {
     this.logger.log(`Initializing project ${projectName} at ${paths.projectDir}`);
     await mkdir(paths.projectDir, { recursive: true });
 
-    execSync('git init', { cwd: paths.projectDir, stdio: 'pipe' });
+    execSync('git init -b main', { cwd: paths.projectDir, stdio: 'pipe' });
 
     await mkdir(paths.tasksDir, { recursive: true });
     await mkdir(paths.archiveDir, { recursive: true });
 
     await writeFile(paths.progressTxt, this.progressHeader());
+
+    execSync('git add -A && git commit -m "chore: initial project setup"', {
+      cwd: paths.projectDir,
+      stdio: 'pipe',
+    });
 
     this.logger.log(`Project ${projectName} initialized`);
     return paths.projectDir;

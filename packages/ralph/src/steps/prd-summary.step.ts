@@ -93,7 +93,7 @@ export class PrdSummaryStep implements StepHandler {
                 prdConversation,
             });
 
-            const displayText = this.formatService.truncate(content, 3800);
+            const displayText = this.formatService.truncateMarkdown(content, 3800);
             await ctx.replyFormatted(`📋 *Uploaded PRD:*\n\n${displayText}`);
             await ctx.replyFormatted(
                 '👆 Review the PRD above. Reply with one of:\n\n' +

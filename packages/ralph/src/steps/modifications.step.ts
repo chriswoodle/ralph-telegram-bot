@@ -42,7 +42,7 @@ export class ModificationsStep implements StepHandler {
                 prdConversation: result.conversation,
             });
 
-            const displayText = this.formatService.truncate(result.prd, 3800);
+            const displayText = this.formatService.truncateMarkdown(result.prd, 3800);
             await ctx.replyFormatted(`📋 *Updated PRD:*\n\n${displayText}`);
             await ctx.replyFormatted(
                 'Reply *"approve"* to accept, send more modifications, or *"redo"* to start over.',

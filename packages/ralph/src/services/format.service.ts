@@ -37,6 +37,16 @@ export class FormatService {
         return text.slice(0, max - 20) + '\n\n... (truncated)';
     }
 
+    /**
+     * Escapes Telegram Markdown v1 special characters in user-supplied text,
+     * truncates to the given limit, and ensures no unclosed entities remain.
+     */
+    truncateMarkdown(text: string, max = 4000): string {
+        // Escape Telegram Markdown v1 special chars: _ * ` [
+        const escaped = text.replace(/([_*`\[])/g, '\\$1');
+        return this.truncate(escaped, max);
+    }
+
     formatSessionHistoryForDebug(
         history: SessionHistoryEntry[],
         maxEntries = 20,
