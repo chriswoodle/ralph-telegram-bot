@@ -26,6 +26,7 @@ const StateSchema = z.enum([
   'REVIEWING_PRD',
   'AWAITING_MODIFICATIONS',
   'RUNNING',
+  'AWAITING_IMPORT_URL',
 ]);
 
 const UserStorySchema = z.object({

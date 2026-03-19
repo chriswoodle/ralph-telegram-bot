@@ -47,8 +47,8 @@ export const configuration = () => {
         }),
         RALPH_PROJECTS_DIR: str({
             desc: 'The directory for the Ralph projects.',
-            example: './projects',
-            default: './projects',
+            example: './ralph-projects',
+            default: './ralph-projects',
         }),
         ALLOWED_USERS: str({
             desc: 'The allowed users for the Telegram bot.',

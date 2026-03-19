@@ -7,6 +7,7 @@ import { ClarificationsStep } from './steps/clarifications.step';
 import { PrdReviewStep } from './steps/prd-review.step';
 import { ModificationsStep } from './steps/modifications.step';
 import { RunStep } from './steps/run.step';
+import { ImportUrlStep } from './steps/import-url.step';
 import { State } from './types/session.types';
 import type { StateValue } from './types/session.types';
 import type { StepHandler, WorkflowContext, IncomingDocument } from './types/workflow.types';
@@ -25,6 +26,7 @@ export class WorkflowRouter {
         prdReviewStep: PrdReviewStep,
         modificationsStep: ModificationsStep,
         private readonly runStep: RunStep,
+        importUrlStep: ImportUrlStep,
     ) {
         this.steps = new Map<StateValue, StepHandler>([
             [State.AWAITING_PROJECT_NAME, projectNameStep],
@@ -34,6 +36,7 @@ export class WorkflowRouter {
             [State.REVIEWING_PRD, prdReviewStep],
             [State.AWAITING_MODIFICATIONS, modificationsStep],
             [State.RUNNING, runStep],
+            [State.AWAITING_IMPORT_URL, importUrlStep],
         ]);
     }
 

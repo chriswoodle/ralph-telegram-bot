@@ -17,6 +17,7 @@ export class TelegramAdapter {
         // Commands
         bot.command('start', (ctx) => this.commandHandler.handleStart(this.createContext(ctx)));
         bot.command('new', (ctx) => this.commandHandler.handleNew(this.createContext(ctx)));
+        bot.command('import', (ctx) => this.commandHandler.handleImport(this.createContext(ctx)));
         bot.command('feature', (ctx) => this.commandHandler.handleFeature(this.createContext(ctx)));
         bot.command('progress', (ctx) => this.commandHandler.handleProgress(this.createContext(ctx)));
         bot.command('log', (ctx) => this.commandHandler.handleLog(this.createContext(ctx)));

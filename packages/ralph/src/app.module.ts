@@ -23,6 +23,7 @@ import { ClarificationsStep } from './steps/clarifications.step';
 import { PrdReviewStep } from './steps/prd-review.step';
 import { ModificationsStep } from './steps/modifications.step';
 import { RunStep } from './steps/run.step';
+import { ImportUrlStep } from './steps/import-url.step';
 
 @Module({
     imports: [
@@ -54,6 +55,7 @@ import { RunStep } from './steps/run.step';
         PrdReviewStep,
         ModificationsStep,
         RunStep,
+        ImportUrlStep,
     ],
 })
 export class AppModule { }

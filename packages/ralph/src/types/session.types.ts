@@ -9,6 +9,7 @@ export const State = {
   REVIEWING_PRD: 'REVIEWING_PRD',
   AWAITING_MODIFICATIONS: 'AWAITING_MODIFICATIONS',
   RUNNING: 'RUNNING',
+  AWAITING_IMPORT_URL: 'AWAITING_IMPORT_URL',
 } as const;
 
 export type StateValue = (typeof State)[keyof typeof State];

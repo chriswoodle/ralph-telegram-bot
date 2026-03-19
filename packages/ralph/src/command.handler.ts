@@ -143,12 +143,25 @@ export class CommandHandler {
         await ctx.replyFormatted(this.formatService.truncate(full, 3800));
     }
 
+    async handleImport(ctx: WorkflowContext): Promise<void> {
+        this.logger.log(`/import from user ${ctx.userId}`);
+        this.sessionService.resetSession(ctx.userId);
+        this.sessionService.updateSession(ctx.userId, { state: State.AWAITING_IMPORT_URL });
+
+        await ctx.replyFormatted(
+            '📥 *Import a Git Repository*\n\n' +
+            'Please provide the Git SSH URL of the repository you want to import.\n\n' +
+            '_Example: `git@github.com:username/repo-name.git`_',
+        );
+    }
+
     async handleHelp(ctx: WorkflowContext): Promise<void> {
         this.logger.log(`/help from user ${ctx.userId}`);
         await ctx.replyFormatted(
             `🤖 *${this.botName} Bot — Commands*\n\n` +
             '/start — Start a new project\n' +
             '/new — Alias for /start\n' +
+            '/import — Import an existing Git repository\n' +
             '/feature — Add a new feature to an existing project\n' +
             '/progress — Check story completion status\n' +
             '/log — View raw progress log\n' +

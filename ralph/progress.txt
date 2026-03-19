@@ -1,0 +1,80 @@
+# Anton Progress Log
+Started: 2026-03-17T07:57:35.460Z
+---
+
+## Codebase Patterns
+- Config uses `envalid` in `config.ts`, access via NestJS `ConfigService<AppConfig>`
+- ProjectService.projectsDir getter returns the configured RALPH_PROJECTS_DIR
+- Project repo is at `packages/ralph/projects/ralph-telegram-bot/` (its own git repo, separate from parent)
+- Build command: `yarn build` from `packages/ralph/` directory
+- Commands registered in `TelegramAdapter.register()`, implemented in `CommandHandler`
+- State machine steps in `src/steps/` implement `StepHandler` interface
+- Use `WorkflowContext` for replies (reply, replyFormatted, replySilent)
+- Adding a new command: update session.types, dashboard.dto, create step, update command.handler, telegram.adapter, workflow.router, app.module (7 files)
+- For long-running shell commands use `spawn` from `child_process` (not `execSync`) to avoid blocking
+
+---
+
+## 2026-03-17 - US-001
+- Implemented: Configure projects directory path
+- Changed default `RALPH_PROJECTS_DIR` from `./projects` to `./ralph-projects` in config.ts
+- Added `OnModuleInit` to `ProjectService` to auto-create the projects directory on startup
+- Updated fallback default in `projectsDir` getter to match
+- Files changed: `packages/ralph/src/config.ts`, `packages/ralph/src/services/project.service.ts`
+- **Learnings for future iterations:**
+  - The project lives inside a gitignored `projects/` dir of the parent repo — commit in the project's own git repo, not the parent
+  - `mkdir({ recursive: true })` is safe to call even if dir exists
+  - NestJS `OnModuleInit` is the right lifecycle hook for ensuring directories exist at startup
+---
+
+## 2026-03-17 - US-002
+- Implemented: /import command handler with SSH URL validation
+- Added `AWAITING_IMPORT_URL` state to session types and dashboard DTO
+- Created `ImportUrlStep` step handler for SSH URL input validation
+- Added `handleImport` method to `CommandHandler`
+- Registered command in `TelegramAdapter`, `WorkflowRouter`, and `AppModule`
+- Updated /help text to include /import command
+- Files changed:
+  - `packages/ralph/src/types/session.types.ts` (new state)
+  - `packages/ralph/src/dto/dashboard.dto.ts` (state enum sync)
+  - `packages/ralph/src/steps/import-url.step.ts` (new file)
+  - `packages/ralph/src/command.handler.ts` (handleImport + help text)
+  - `packages/ralph/src/adapters/telegram.adapter.ts` (command registration)
+  - `packages/ralph/src/workflow.router.ts` (step routing)
+  - `packages/ralph/src/app.module.ts` (DI registration)
+- **Learnings for future iterations:**
+  - Adding a new command requires touching 6 files: session.types, dto, step file, command.handler, telegram.adapter, workflow.router, app.module
+  - SSH URL regex pattern: `^git@[\w.-]+:[\w./-]+\.git$`
+  - Dashboard DTO StateSchema must stay in sync with session.types State
+  - `yarn build` produces no output on success (exit code 0)
+---
+
+## 2026-03-17 - US-003
+- Implemented: Duplicate project name check in ImportUrlStep
+- Injected `ProjectService` into `ImportUrlStep` to access `projectsDir`
+- Added `fs/promises.access()` check on resolved project directory before accepting URL
+- If directory exists, returns error message and does NOT change session state
+- Files changed:
+  - `packages/ralph/src/steps/import-url.step.ts` (added ProjectService DI, duplicate check)
+- **Learnings for future iterations:**
+  - Use `access()` from `node:fs/promises` to check directory existence — throws on missing, succeeds on exists
+  - `ProjectService.projectsDir` is a getter, resolve with `path.resolve()` before joining with repo name
+  - NestJS DI handles adding new constructor params automatically if the provider is already registered in the module
+---
+
+## 2026-03-17 - US-004
+- Implemented: Clone Git repository from SSH URL
+- Replaced placeholder message with actual `git clone --progress` execution via `child_process.spawn`
+- Added 5-minute timeout using `setTimeout` + `SIGTERM`
+- Clone progress feedback: sends "Cloning..." message before starting, success message after
+- Error handling: specific messages for auth failures (Permission denied, Host key verification), timeout, and generic errors
+- Cleans up partial clone directory on failure via `rm({ recursive: true, force: true })`
+- Sets `projectDir` in session on success
+- Files changed:
+  - `packages/ralph/src/steps/import-url.step.ts` (added cloneRepository method, spawn, rm, timeout logic)
+- **Learnings for future iterations:**
+  - Use `spawn` instead of `execSync` for long-running processes to avoid blocking and to capture stderr for error messages
+  - Git clone writes progress to stderr, not stdout — capture stderr for both progress and error info
+  - Always clean up partial directories on clone failure to avoid blocking future imports (duplicate check)
+  - `rm({ recursive: true, force: true })` won't throw if directory doesn't exist
+---

@@ -1,0 +1,95 @@
+{
+  "project": "ralph-telegram-bot",
+  "branchName": "ralph/import-git-repo",
+  "description": "Add Telegram bot command to import existing Git repositories into ralph via SSH URL, cloning repos and creating minimal prd.json configuration",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Configure projects directory path",
+      "description": "As a bot administrator, I want to configure where imported repositories are stored so that imported projects are organized correctly.",
+      "acceptanceCriteria": [
+        "Configuration option for projectsDirectory path",
+        "Default to ./ralph-projects if not configured",
+        "Bot creates directory if it doesn't exist",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add import command handler to Telegram bot",
+      "description": "As a user, I want to use an /import command so I can start importing a repository.",
+      "acceptanceCriteria": [
+        "Bot responds to /import command",
+        "Bot prompts for Git SSH URL after command is issued",
+        "Bot handles invalid URL format with helpful error message",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Handle duplicate project names",
+      "description": "As a user, when importing a repository with a name that already exists, I want to be informed clearly so I can take corrective action.",
+      "acceptanceCriteria": [
+        "Bot checks if project directory already exists before cloning",
+        "If exists, bot sends clear error message: A project with this name already exists. Please use a different repository or rename first.",
+        "Bot does NOT create partial duplicate directory",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Clone Git repository from SSH URL",
+      "description": "As a user, when I provide a valid Git SSH URL, I want the bot to clone the repository into the ralph projects directory.",
+      "acceptanceCriteria": [
+        "Bot executes git clone with provided SSH URL",
+        "Repository cloned to configured projects directory",
+        "Clone progress shown to user via bot messages",
+        "Handles authentication failures with clear error",
+        "Timeout after 5 minutes for large repos",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Create minimal prd.json file",
+      "description": "As a user, I want the bot to create a minimal prd.json file so ralph detects the imported project.",
+      "acceptanceCriteria": [
+        "prd.json created in cloned repo root directory",
+        "Contains name field derived from repo name",
+        "Contains repoUrl field the SSH URL provided",
+        "Contains importedAt field ISO timestamp",
+        "Valid JSON format",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Validate cloned repository",
+      "description": "As a user, I want the bot to validate the cloned repository before marking it as successfully imported so I know the import is complete.",
+      "acceptanceCriteria": [
+        "Verify .git directory exists valid git repo",
+        "Warn user if package.json, Cargo.toml, or other common dependency files are missing",
+        "Send success message with project name and path after import",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

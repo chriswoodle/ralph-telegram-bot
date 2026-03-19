@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { mkdir, readFile, readdir, writeFile, copyFile, access } from 'node:fs/promises';
 import { execSync } from 'node:child_process';
@@ -10,13 +10,19 @@ import type { RalphProjectPaths, ProgressResult, ProjectInfo } from '../types/pr
 const CONTEXT_MAX_CHARS = 4000;
 
 @Injectable()
-export class ProjectService {
+export class ProjectService implements OnModuleInit {
   private readonly logger = new Logger(ProjectService.name);
 
   constructor(private readonly configService: ConfigService<AppConfig>) {}
 
+  async onModuleInit(): Promise<void> {
+    const dir = path.resolve(this.projectsDir);
+    await mkdir(dir, { recursive: true });
+    this.logger.log(`Projects directory ensured at ${dir}`);
+  }
+
   get projectsDir(): string {
-    return this.configService.get('RALPH_PROJECTS_DIR', './projects');
+    return this.configService.get('RALPH_PROJECTS_DIR', './ralph-projects');
   }
 
   getRalphProjectPaths(baseDir: string, projectName: string): RalphProjectPaths {
