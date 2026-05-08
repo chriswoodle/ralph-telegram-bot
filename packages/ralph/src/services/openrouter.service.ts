@@ -22,7 +22,7 @@ export class OpenRouterService {
   ): Promise<string> {
     conversation.messages.push({ role: 'user', content: userMessage });
 
-    const model = this.configService.get('OPENROUTER_MODEL', 'minimax/minimax-m2.5');
+    const model = this.configService.get('OPENROUTER_MODEL', 'moonshotai/kimi-k2.6');
     this.logger.log(
       `Calling ${model}, ${conversation.messages.length} messages, last user msg length: ${userMessage.length}`,
     );

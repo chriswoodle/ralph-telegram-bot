@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { SessionService } from '../services/session.service';
 import { ProjectService } from '../services/project.service';
 import { PrdService } from '../services/prd.service';
-import { FormatService } from '../services/format.service';
 import { State } from '../types/session.types';
 import type { AppConfig } from '../config';
 import type { StepHandler, WorkflowContext } from '../types/workflow.types';
@@ -18,7 +17,6 @@ export class ClarificationsStep implements StepHandler {
         private readonly sessionService: SessionService,
         private readonly projectService: ProjectService,
         private readonly prdService: PrdService,
-        private readonly formatService: FormatService,
         configService: ConfigService<AppConfig>,
     ) {
         this.botName = configService.get('BOT_NAME', 'Ralph');
@@ -50,8 +48,8 @@ export class ClarificationsStep implements StepHandler {
                 prdConversation: result.conversation,
             });
 
-            const displayText = this.formatService.truncate(result.prd, 3800);
-            await ctx.replyFormatted(`📋 *Generated PRD:*\n\n${displayText}`);
+            const filename = `${session.projectName!.replace(/[^a-zA-Z0-9_-]/g, '_')}-prd.md`;
+            await ctx.replyDocument(result.prd, filename);
             await ctx.replyFormatted(
                 '👆 Review the PRD above. Reply with one of:\n\n' +
                 `✅ *"approve"* — Accept and convert to ${this.botName} format\n` +

@@ -9,6 +9,7 @@ export const State = {
   REVIEWING_PRD: 'REVIEWING_PRD',
   AWAITING_MODIFICATIONS: 'AWAITING_MODIFICATIONS',
   RUNNING: 'RUNNING',
+  PAUSED: 'PAUSED',
   AWAITING_IMPORT_URL: 'AWAITING_IMPORT_URL',
 } as const;
 
@@ -48,6 +49,9 @@ export interface Session {
   prdConversation: Conversation | null;
   startedAt: number | null;
   estimatedEndAt: number | null;
+  pauseRequested: boolean;
+  pauseReason: 'user' | 'usage_limit' | null;
+  usageLimitResetTime: string | null;
 }
 
 export type PersistedSession = Omit<Session, 'abortController'>;
@@ -67,6 +71,9 @@ export interface SessionSnapshot {
   projectContext: string | null;
   startedAt: number | null;
   estimatedEndAt: number | null;
+  pauseRequested: boolean;
+  pauseReason: 'user' | 'usage_limit' | null;
+  usageLimitResetTime: string | null;
 }
 
 export interface SessionHistoryEntry {

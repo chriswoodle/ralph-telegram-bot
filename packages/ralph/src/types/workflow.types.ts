@@ -5,6 +5,7 @@ export interface WorkflowContext {
     reply(text: string): Promise<void>;
     replyFormatted(text: string): Promise<void>;
     replySilent(text: string): Promise<void>;
+    replyDocument(content: string, filename: string): Promise<void>;
 }
 
 export interface IncomingDocument {

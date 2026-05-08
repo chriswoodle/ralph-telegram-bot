@@ -18,6 +18,7 @@ import { ClarificationsStep } from './steps/clarifications.step';
 import { PrdReviewStep } from './steps/prd-review.step';
 import { ModificationsStep } from './steps/modifications.step';
 import { RunStep } from './steps/run.step';
+import { ImportUrlStep } from './steps/import-url.step';
 import { State } from './types/session.types';
 import type { PrdJson } from './types/session.types';
 import type { WorkflowContext } from './types/workflow.types';
@@ -35,6 +36,7 @@ function createMockContext(userId = 1): WorkflowContext & { messages: string[] }
         reply: jest.fn(async (text: string) => { messages.push(text); }),
         replyFormatted: jest.fn(async (text: string) => { messages.push(text); }),
         replySilent: jest.fn(async (text: string) => { messages.push(text); }),
+        replyDocument: jest.fn(async (content: string, _filename: string) => { messages.push(content); }),
     };
 }
 
@@ -105,6 +107,7 @@ describe('Workflow Integration', () => {
                 PrdReviewStep,
                 ModificationsStep,
                 RunStep,
+                ImportUrlStep,
                 {
                     provide: ProjectService,
                     useValue: {
@@ -759,6 +762,291 @@ describe('Workflow Integration', () => {
             await commandHandler.handleDebug(ctx);
             expect(ctx.messages.some((m) => m.includes('Session Debugger'))).toBe(true);
             expect(ctx.messages.some((m) => m.includes('AWAITING_PROJECT_NAME'))).toBe(true);
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // /pause and /resume
+    // -----------------------------------------------------------------------
+
+    describe('/pause and /resume', () => {
+        const userId = 70;
+
+        it('/pause when not running tells user', async () => {
+            const ctx = createMockContext(userId);
+            sessionService.resetSession(userId);
+            await commandHandler.handlePause(ctx);
+            expect(ctx.messages.some((m) => m.includes('not currently running'))).toBe(true);
+        });
+
+        it('/pause sets pauseRequested flag and aborts the controller', async () => {
+            const ctx = createMockContext(userId);
+            sessionService.resetSession(userId);
+            const abortController = new AbortController();
+            sessionService.updateSession(userId, {
+                state: State.RUNNING,
+                abortController,
+            });
+
+            await commandHandler.handlePause(ctx);
+            expect(sessionService.getSession(userId).pauseRequested).toBe(true);
+            expect(sessionService.getSession(userId).pauseReason).toBe('user');
+            expect(abortController.signal.aborted).toBe(true);
+            expect(ctx.messages.some((m) => m.includes('Pausing'))).toBe(true);
+        });
+
+        it('/pause when already paused returns early', async () => {
+            const ctx = createMockContext(userId);
+            sessionService.resetSession(userId);
+            sessionService.updateSession(userId, { state: State.PAUSED });
+
+            await commandHandler.handlePause(ctx);
+            expect(ctx.messages.some((m) => m.includes('already paused'))).toBe(true);
+        });
+
+        it('/resume with no project tells user nothing to resume', async () => {
+            const ctx = createMockContext(userId);
+            sessionService.resetSession(userId);
+            await commandHandler.handleResume(ctx);
+            expect(ctx.messages.some((m) => m.includes('Nothing to resume'))).toBe(true);
+        });
+
+        it('/resume when already running rejects', async () => {
+            const ctx = createMockContext(userId);
+            sessionService.resetSession(userId);
+            sessionService.updateSession(userId, { state: State.RUNNING });
+            await commandHandler.handleResume(ctx);
+            expect(ctx.messages.some((m) => m.includes('already running'))).toBe(true);
+        });
+
+        it('/resume re-enters RUNNING state and re-runs from first unfinished story', async () => {
+            const ctx = createMockContext(userId);
+            sessionService.resetSession(userId);
+            sessionService.updateSession(userId, {
+                state: State.PAUSED,
+                projectName: 'paused-app',
+                projectDir: '/tmp/paused',
+                prdJson: FAKE_PRD_JSON,
+                currentIteration: 2,
+                pauseReason: 'usage_limit',
+            });
+
+            // Mock progress: US-1 already done, US-2 pending → resume at index 1
+            projectService.getProgress.mockResolvedValueOnce({
+                project: 'test-app',
+                total: 2,
+                done: 1,
+                current: FAKE_PRD_JSON.userStories[1],
+                stories: [
+                    { ...FAKE_PRD_JSON.userStories[0], passes: true },
+                    { ...FAKE_PRD_JSON.userStories[1], passes: false },
+                ],
+            });
+
+            // Make runRalphLoop never resolve so state stays RUNNING
+            let resolveLoop!: (v: { completed: boolean; iterations: number }) => void;
+            ralphLoopService.runRalphLoop.mockReturnValueOnce(
+                new Promise((resolve) => { resolveLoop = resolve; }),
+            );
+
+            await commandHandler.handleResume(ctx);
+
+            expect(ralphLoopService.runRalphLoop).toHaveBeenCalledWith(
+                expect.objectContaining({ startFromIndex: 1 }),
+            );
+            expect(sessionService.getSession(userId).state).toBe(State.RUNNING);
+            expect(sessionService.getSession(userId).pauseRequested).toBe(false);
+            expect(sessionService.getSession(userId).pauseReason).toBeNull();
+
+            resolveLoop({ completed: true, iterations: 2 });
+        });
+
+        it('/resume from IDLE (stopped) picks up at first unfinished story', async () => {
+            const ctx = createMockContext(userId);
+            sessionService.resetSession(userId);
+            sessionService.updateSession(userId, {
+                state: State.IDLE,
+                projectName: 'stopped-app',
+                projectDir: '/tmp/stopped',
+                prdJson: FAKE_PRD_JSON,
+                currentIteration: 1,
+            });
+
+            projectService.getProgress.mockResolvedValueOnce({
+                project: 'test-app',
+                total: 2,
+                done: 0,
+                current: FAKE_PRD_JSON.userStories[0],
+                stories: FAKE_PRD_JSON.userStories,
+            });
+
+            let resolveLoop!: (v: { completed: boolean; iterations: number }) => void;
+            ralphLoopService.runRalphLoop.mockReturnValueOnce(
+                new Promise((resolve) => { resolveLoop = resolve; }),
+            );
+
+            await commandHandler.handleResume(ctx);
+
+            expect(ralphLoopService.runRalphLoop).toHaveBeenCalledWith(
+                expect.objectContaining({ startFromIndex: 0 }),
+            );
+            expect(sessionService.getSession(userId).state).toBe(State.RUNNING);
+
+            resolveLoop({ completed: true, iterations: 2 });
+        });
+
+        it('/resume <name> loads project from disk and dispatches', async () => {
+            const ctx = createMockContext(userId);
+            sessionService.resetSession(userId);
+
+            projectService.listProjects.mockResolvedValueOnce([
+                { name: 'harvest', projectDir: '/tmp/projects/harvest', description: 'Harvest project' },
+            ]);
+            (projectService as unknown as { readPrdJson: jest.Mock }).readPrdJson = jest
+                .fn()
+                .mockResolvedValueOnce(FAKE_PRD_JSON);
+            projectService.getProgress.mockResolvedValueOnce({
+                project: 'harvest', total: 2, done: 0, current: FAKE_PRD_JSON.userStories[0],
+                stories: FAKE_PRD_JSON.userStories,
+            });
+
+            let resolveLoop!: (v: { completed: boolean; iterations: number }) => void;
+            ralphLoopService.runRalphLoop.mockReturnValueOnce(
+                new Promise((resolve) => { resolveLoop = resolve; }),
+            );
+
+            await commandHandler.handleResume(ctx, 'harvest');
+
+            const session = sessionService.getSession(userId);
+            expect(session.projectName).toBe('harvest');
+            expect(session.projectDir).toBe('/tmp/projects/harvest');
+            expect(session.prdJson).toEqual(FAKE_PRD_JSON);
+            expect(session.state).toBe(State.RUNNING);
+            expect(ralphLoopService.runRalphLoop).toHaveBeenCalled();
+
+            resolveLoop({ completed: true, iterations: 2 });
+        });
+
+        it('/resume <name> with no match tells user', async () => {
+            const ctx = createMockContext(userId);
+            sessionService.resetSession(userId);
+
+            projectService.listProjects.mockResolvedValueOnce([
+                { name: 'other', projectDir: '/tmp/other', description: 'Other' },
+            ]);
+
+            await commandHandler.handleResume(ctx, 'nope');
+
+            expect(ctx.messages.some((m) => m.includes('No project matched'))).toBe(true);
+            expect(ralphLoopService.runRalphLoop).not.toHaveBeenCalled();
+        });
+
+        it('/resume <substr> with multiple matches asks for specificity', async () => {
+            const ctx = createMockContext(userId);
+            sessionService.resetSession(userId);
+
+            projectService.listProjects.mockResolvedValueOnce([
+                { name: 'harvest-v1', projectDir: '/tmp/h1', description: '' },
+                { name: 'harvest-v2', projectDir: '/tmp/h2', description: '' },
+            ]);
+
+            await commandHandler.handleResume(ctx, 'harvest');
+
+            expect(ctx.messages.some((m) => m.includes('Multiple projects matched'))).toBe(true);
+            expect(ralphLoopService.runRalphLoop).not.toHaveBeenCalled();
+        });
+
+        it('/resume with no arg lists projects with pending work', async () => {
+            const ctx = createMockContext(userId);
+            sessionService.resetSession(userId);
+
+            projectService.listProjects.mockResolvedValueOnce([
+                { name: 'harvest', projectDir: '/tmp/harvest', description: '' },
+                { name: 'done-app', projectDir: '/tmp/done', description: '' },
+            ]);
+            projectService.getProgress
+                .mockResolvedValueOnce({
+                    project: 'harvest', total: 30, done: 19,
+                    current: FAKE_PRD_JSON.userStories[0], stories: FAKE_PRD_JSON.userStories,
+                })
+                .mockResolvedValueOnce({
+                    project: 'done-app', total: 5, done: 5, current: null, stories: [],
+                });
+
+            await commandHandler.handleResume(ctx);
+
+            expect(ctx.messages.some((m) => m.includes('harvest') && m.includes('19/30'))).toBe(true);
+            expect(ctx.messages.some((m) => m.includes('done-app'))).toBe(false);
+        });
+
+        it('/resume short-circuits when all stories already pass', async () => {
+            const ctx = createMockContext(userId);
+            sessionService.resetSession(userId);
+            sessionService.updateSession(userId, {
+                state: State.IDLE,
+                projectName: 'done-app',
+                projectDir: '/tmp/done',
+                prdJson: FAKE_PRD_JSON,
+            });
+
+            projectService.getProgress.mockResolvedValueOnce({
+                project: 'test-app',
+                total: 2,
+                done: 2,
+                current: null,
+                stories: FAKE_PRD_JSON.userStories.map((s) => ({ ...s, passes: true })),
+            });
+
+            await commandHandler.handleResume(ctx);
+
+            expect(ralphLoopService.runRalphLoop).not.toHaveBeenCalled();
+            expect(sessionService.getSession(userId).state).toBe(State.IDLE);
+            expect(sessionService.getSession(userId).completed).toBe(true);
+            expect(ctx.messages.some((m) => m.includes('all') && m.includes('complete'))).toBe(true);
+        });
+
+        it('loop pause result transitions session to PAUSED', async () => {
+            const ctx = createMockContext(userId);
+            sessionService.resetSession(userId);
+            sessionService.updateSession(userId, {
+                projectName: 'usage-app',
+                projectDir: '/tmp/usage',
+                prdJson: FAKE_PRD_JSON,
+            });
+
+            ralphLoopService.runRalphLoop.mockResolvedValueOnce({
+                completed: false,
+                iterations: 0,
+                paused: true,
+                pauseReason: 'usage_limit',
+                pausedAtIteration: 1,
+            });
+
+            await module.get(RunStep).executeRun(ctx);
+            // Flush microtasks so the loop's resolved promise + handleLoopResult run
+            for (let i = 0; i < 10; i++) {
+                await new Promise((r) => setImmediate(r));
+            }
+
+            const session = sessionService.getSession(userId);
+            expect(session.state).toBe(State.PAUSED);
+            expect(session.currentIteration).toBe(1);
+            expect(session.pauseReason).toBe('usage_limit');
+            expect(ctx.messages.some((m) => m.includes('paused'))).toBe(true);
+        });
+
+        it('/stop on a paused session clears state to IDLE', async () => {
+            const ctx = createMockContext(userId);
+            sessionService.resetSession(userId);
+            sessionService.updateSession(userId, {
+                state: State.PAUSED,
+                pauseReason: 'user',
+            });
+
+            await commandHandler.handleStop(ctx);
+            expect(sessionService.getSession(userId).state).toBe(State.IDLE);
+            expect(sessionService.getSession(userId).pauseReason).toBeNull();
+            expect(ctx.messages.some((m) => m.includes('Cleared'))).toBe(true);
         });
     });
 

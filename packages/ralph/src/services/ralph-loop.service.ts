@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ClaudeService } from './claude.service';
+import { ClaudeService, UsageLimitError } from './claude.service';
 import { ResourceLoaderService } from './resource-loader.service';
 import { ProjectService } from './project.service';
 import type { AppConfig } from '../config';
@@ -16,11 +16,21 @@ export interface RalphStatus {
   estimatedEndAt: number | null;
 }
 
+export interface RalphLoopResult {
+  completed: boolean;
+  iterations: number;
+  paused?: boolean;
+  pauseReason?: 'user' | 'usage_limit';
+  pausedAtIteration?: number;
+  resetTime?: string;
+}
+
 interface RunRalphLoopOpts {
   projectDir: string;
   stories: UserStory[];
   signal?: AbortSignal;
   startFromIndex?: number;
+  isPauseRequested?: () => boolean;
   onProgress: (status: RalphStatus) => void | Promise<void>;
 }
 
@@ -56,11 +66,8 @@ export class RalphLoopService {
     this.botName = configService.get('BOT_NAME', 'Ralph');
   }
 
-  async runRalphLoop(opts: RunRalphLoopOpts): Promise<{
-    completed: boolean;
-    iterations: number;
-  }> {
-    const { projectDir, stories, signal, startFromIndex = 0, onProgress } = opts;
+  async runRalphLoop(opts: RunRalphLoopOpts): Promise<RalphLoopResult> {
+    const { projectDir, stories, signal, startFromIndex = 0, isPauseRequested, onProgress } = opts;
     const totalStories = stories.length;
 
     this.logger.log(`Starting loop for ${projectDir}, ${totalStories} stories (claude), from index ${startFromIndex}`);
@@ -75,8 +82,22 @@ export class RalphLoopService {
       const story = stories[i];
 
       if (signal?.aborted) {
-        this.logger.log(`Loop aborted at story ${storyNum}`);
+        const paused = isPauseRequested?.() ?? false;
         const elapsed = Date.now() - loopStartTime;
+        if (paused) {
+          this.logger.log(`Loop paused at story ${storyNum}`);
+          await onProgress({
+            type: 'paused',
+            iteration: storyNum,
+            totalStories,
+            currentStory: story,
+            message: `⏸ ${this.botName} paused at story ${storyNum}/${totalStories}. Use /resume to continue.\n${formatTimeInfo(elapsed)}`,
+            startedAt: loopStartTime,
+            estimatedEndAt: null,
+          });
+          return { completed: false, iterations: i, paused: true, pauseReason: 'user', pausedAtIteration: storyNum };
+        }
+        this.logger.log(`Loop aborted at story ${storyNum}`);
         await onProgress({
           type: 'aborted',
           iteration: storyNum,
@@ -135,7 +156,43 @@ export class RalphLoopService {
         const elapsed = Date.now() - loopStartTime;
 
         const error = err as Error & { name?: string };
+
+        if (err instanceof UsageLimitError) {
+          this.logger.warn(`Usage limit hit at story ${storyNum} — pausing`);
+          const resetSuffix = err.resetTime ? ` Resets ${err.resetTime}.` : '';
+          await onProgress({
+            type: 'paused_usage_limit',
+            iteration: storyNum,
+            totalStories,
+            currentStory: story,
+            message: `⏸ Usage limit reached at story ${storyNum}/${totalStories} (${story.id}).${resetSuffix} ${this.botName} is paused — use /resume to retry this story when limits reset.\n${formatTimeInfo(elapsed)}`,
+            startedAt: loopStartTime,
+            estimatedEndAt: null,
+          });
+          return {
+            completed: false,
+            iterations: i,
+            paused: true,
+            pauseReason: 'usage_limit',
+            pausedAtIteration: storyNum,
+            resetTime: err.resetTime,
+          };
+        }
+
         if (error.name === 'AbortError') {
+          const paused = isPauseRequested?.() ?? false;
+          if (paused) {
+            await onProgress({
+              type: 'paused',
+              iteration: storyNum,
+              totalStories,
+              currentStory: story,
+              message: `⏸ ${this.botName} paused at story ${storyNum}/${totalStories}. Use /resume to continue.\n${formatTimeInfo(elapsed)}`,
+              startedAt: loopStartTime,
+              estimatedEndAt: null,
+            });
+            return { completed: false, iterations: i, paused: true, pauseReason: 'user', pausedAtIteration: storyNum };
+          }
           await onProgress({
             type: 'aborted',
             iteration: storyNum,

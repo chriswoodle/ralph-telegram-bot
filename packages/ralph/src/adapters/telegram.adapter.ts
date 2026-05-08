@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Bot, type Context } from 'grammy';
+import { Bot, InputFile, type Context } from 'grammy';
 import { WorkflowRouter } from '../workflow.router';
 import { CommandHandler } from '../command.handler';
 import type { WorkflowContext, IncomingDocument } from '../types/workflow.types';
@@ -22,6 +22,11 @@ export class TelegramAdapter {
         bot.command('progress', (ctx) => this.commandHandler.handleProgress(this.createContext(ctx)));
         bot.command('log', (ctx) => this.commandHandler.handleLog(this.createContext(ctx)));
         bot.command('stop', (ctx) => this.commandHandler.handleStop(this.createContext(ctx)));
+        bot.command('pause', (ctx) => this.commandHandler.handlePause(this.createContext(ctx)));
+        bot.command('resume', (ctx) => {
+            const arg = (ctx.match ?? '').toString().trim();
+            return this.commandHandler.handleResume(this.createContext(ctx), arg || undefined);
+        });
         bot.command('status', (ctx) => this.commandHandler.handleStatus(this.createContext(ctx)));
         bot.command('debug', (ctx) => this.commandHandler.handleDebug(this.createContext(ctx)));
         bot.command('help', (ctx) => this.commandHandler.handleHelp(this.createContext(ctx)));
@@ -56,6 +61,11 @@ export class TelegramAdapter {
             },
             replySilent: async (text: string) => {
                 await grammyCtx.reply(text, { disable_notification: true });
+            },
+            replyDocument: async (content: string, filename: string) => {
+                await grammyCtx.replyWithDocument(
+                    new InputFile(Buffer.from(content, 'utf-8'), filename),
+                );
             },
         };
     }

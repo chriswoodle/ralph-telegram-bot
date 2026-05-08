@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { SessionService } from '../services/session.service';
 import { ProjectService } from '../services/project.service';
 import { PrdService } from '../services/prd.service';
-import { FormatService } from '../services/format.service';
 import { State } from '../types/session.types';
 import type { StepHandler, WorkflowContext } from '../types/workflow.types';
 
@@ -15,7 +14,6 @@ export class ModificationsStep implements StepHandler {
         private readonly sessionService: SessionService,
         private readonly projectService: ProjectService,
         private readonly prdService: PrdService,
-        private readonly formatService: FormatService,
     ) {}
 
     async handleText(ctx: WorkflowContext, text: string): Promise<void> {
@@ -42,8 +40,8 @@ export class ModificationsStep implements StepHandler {
                 prdConversation: result.conversation,
             });
 
-            const displayText = this.formatService.truncateMarkdown(result.prd, 3800);
-            await ctx.replyFormatted(`📋 *Updated PRD:*\n\n${displayText}`);
+            const filename = `${(session.projectName ?? 'prd').replace(/[^a-zA-Z0-9_-]/g, '_')}-prd.md`;
+            await ctx.replyDocument(result.prd, filename);
             await ctx.replyFormatted(
                 'Reply *"approve"* to accept, send more modifications, or *"redo"* to start over.',
             );

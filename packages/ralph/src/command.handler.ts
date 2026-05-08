@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { SessionService } from './services/session.service';
 import { ProjectService } from './services/project.service';
 import { FormatService } from './services/format.service';
+import { RunStep } from './steps/run.step';
 import { State } from './types/session.types';
 import type { AppConfig } from './config';
 import type { WorkflowContext } from './types/workflow.types';
@@ -16,6 +17,7 @@ export class CommandHandler {
         private readonly sessionService: SessionService,
         private readonly projectService: ProjectService,
         private readonly formatService: FormatService,
+        private readonly runStep: RunStep,
         configService: ConfigService<AppConfig>,
     ) {
         this.botName = configService.get('BOT_NAME', 'Ralph');
@@ -98,16 +100,145 @@ export class CommandHandler {
         const session = this.sessionService.getSession(ctx.userId);
         this.logger.log(`/stop from user ${ctx.userId}, state: ${session.state}`);
 
+        if (session.state !== State.RUNNING && session.state !== State.PAUSED) {
+            await ctx.reply(`${this.botName} is not currently running.`);
+            return;
+        }
+
+        if (session.state === State.PAUSED) {
+            this.runStep.cancelAutoResume(ctx.userId);
+            this.sessionService.updateSession(ctx.userId, {
+                state: State.IDLE,
+                pauseRequested: false,
+                pauseReason: null,
+                usageLimitResetTime: null,
+                abortController: null,
+                estimatedEndAt: null,
+            });
+            await ctx.reply(`🛑 Cleared paused ${this.botName} session.`);
+            return;
+        }
+
+        if (session.abortController) {
+            this.sessionService.updateSession(ctx.userId, { pauseRequested: false, pauseReason: null });
+            session.abortController.abort();
+            this.logger.log(`Abort requested for user ${ctx.userId}`);
+            await ctx.reply(`🛑 Stopping ${this.botName} after current iteration completes...`);
+        }
+    }
+
+    async handlePause(ctx: WorkflowContext): Promise<void> {
+        const session = this.sessionService.getSession(ctx.userId);
+        this.logger.log(`/pause from user ${ctx.userId}, state: ${session.state}`);
+
+        if (session.state === State.PAUSED) {
+            await ctx.reply(`${this.botName} is already paused. Use /resume to continue.`);
+            return;
+        }
+
         if (session.state !== State.RUNNING) {
             await ctx.reply(`${this.botName} is not currently running.`);
             return;
         }
 
+        this.sessionService.updateSession(ctx.userId, {
+            pauseRequested: true,
+            pauseReason: 'user',
+        });
+
         if (session.abortController) {
             session.abortController.abort();
-            this.logger.log(`Abort requested for user ${ctx.userId}`);
-            await ctx.reply(`🛑 Stopping ${this.botName} after current iteration completes...`);
+            this.logger.log(`Pause requested for user ${ctx.userId}`);
+            await ctx.reply(`⏸ Pausing ${this.botName} after current iteration completes. Use /resume to continue.`);
         }
+    }
+
+    async handleResume(ctx: WorkflowContext, projectArg?: string): Promise<void> {
+        const session = this.sessionService.getSession(ctx.userId);
+        this.logger.log(`/resume from user ${ctx.userId}, state: ${session.state}, arg: ${projectArg ?? '(none)'}`);
+
+        if (session.state === State.RUNNING) {
+            await ctx.reply(`${this.botName} is already running.`);
+            return;
+        }
+
+        if (projectArg) {
+            const loaded = await this.loadProjectIntoSession(ctx, projectArg);
+            if (!loaded) return;
+        } else if (!session.prdJson || !session.projectDir) {
+            await this.listResumableProjects(ctx);
+            return;
+        }
+
+        if (session.state !== State.PAUSED && session.state !== State.IDLE) {
+            await ctx.reply(`Cannot resume from state \`${session.state}\`. Use /start or /feature.`);
+            return;
+        }
+
+        await this.runStep.resumeRun(ctx);
+    }
+
+    private async loadProjectIntoSession(ctx: WorkflowContext, identifier: string): Promise<boolean> {
+        const projects = await this.projectService.listProjects(this.projectService.projectsDir);
+        const needle = identifier.toLowerCase();
+
+        const exact = projects.find((p) => p.name.toLowerCase() === needle);
+        const candidates = exact
+            ? [exact]
+            : projects.filter((p) => p.name.toLowerCase().includes(needle));
+
+        if (candidates.length === 0) {
+            await ctx.reply(`No project matched \`${identifier}\`. Use /resume with no argument to list resumable projects.`);
+            return false;
+        }
+        if (candidates.length > 1) {
+            const names = candidates.map((p) => `\`${p.name}\``).join(', ');
+            await ctx.replyFormatted(`Multiple projects matched \`${identifier}\`: ${names}. Be more specific.`);
+            return false;
+        }
+
+        const project = candidates[0];
+        const prdJson = await this.projectService.readPrdJson(project.projectDir);
+        if (!prdJson || !Array.isArray(prdJson.userStories) || prdJson.userStories.length === 0) {
+            await ctx.reply(`Project \`${project.name}\` has no PRD or user stories — cannot resume.`);
+            return false;
+        }
+
+        this.sessionService.resetSession(ctx.userId);
+        this.sessionService.updateSession(ctx.userId, {
+            state: State.IDLE,
+            projectName: project.name,
+            projectDir: project.projectDir,
+            prdJson,
+        });
+
+        this.logger.log(`Loaded project ${project.name} for user ${ctx.userId} from ${project.projectDir}`);
+        return true;
+    }
+
+    private async listResumableProjects(ctx: WorkflowContext): Promise<void> {
+        const projects = await this.projectService.listProjects(this.projectService.projectsDir);
+        const resumable: { name: string; done: number; total: number }[] = [];
+
+        for (const p of projects) {
+            const progress = await this.projectService.getProgress(p.projectDir);
+            if (progress.total > 0 && progress.done < progress.total) {
+                resumable.push({ name: p.name, done: progress.done, total: progress.total });
+            }
+        }
+
+        if (resumable.length === 0) {
+            await ctx.reply('Nothing to resume — all known projects are complete or have no PRD. Use /start to begin a new project.');
+            return;
+        }
+
+        const lines = resumable
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((p) => `• \`${p.name}\` — ${p.done}/${p.total} stories done`);
+
+        await ctx.replyFormatted(
+            `📂 *Projects with pending work:*\n${lines.join('\n')}\n\n_Run \`/resume <name>\` to continue one._`,
+        );
     }
 
     async handleStatus(ctx: WorkflowContext): Promise<void> {
@@ -120,11 +251,19 @@ export class CommandHandler {
             `Directory: \`${session.projectDir || 'N/A'}\``,
         ];
 
-        if (session.state === State.RUNNING) {
+        if (session.state === State.RUNNING || session.state === State.PAUSED) {
             const totalStories = session.prdJson?.userStories.length ?? 0;
             lines.push(`Story: ${session.currentIteration}/${totalStories}`);
             if (session.currentStory) {
                 lines.push(`Current Story: ${session.currentStory}`);
+            }
+            if (session.state === State.PAUSED && session.pauseReason) {
+                if (session.pauseReason === 'usage_limit') {
+                    const resetInfo = session.usageLimitResetTime ? ` — resets ${session.usageLimitResetTime}` : '';
+                    lines.push(`Paused: usage limit reached${resetInfo}`);
+                } else {
+                    lines.push(`Paused: by user`);
+                }
             }
         }
 
@@ -168,6 +307,8 @@ export class CommandHandler {
             '/status — Current session state\n' +
             '/debug — View session state change history\n' +
             `/stop — Cancel a running ${this.botName} loop\n` +
+            `/pause — Pause ${this.botName} after the current story\n` +
+            `/resume [project] — Resume a paused/stopped loop, or pick up an existing project\n` +
             '/help — Show this message',
         );
     }

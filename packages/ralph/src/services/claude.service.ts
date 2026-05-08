@@ -11,6 +11,35 @@ interface RunClaudeOpts {
   signal?: AbortSignal;
 }
 
+export class UsageLimitError extends Error {
+  readonly name = 'UsageLimitError';
+  readonly resetTime?: string;
+  constructor(message: string, resetTime?: string) {
+    super(message);
+    this.resetTime = resetTime;
+  }
+}
+
+const USAGE_LIMIT_PATTERNS = [
+  /you.?ve hit your (usage |claude |daily |weekly |monthly )?limit/i,
+  /claude.*usage.*limit.*reached/i,
+  /claude.*rate.*limit.*exceeded/i,
+  /your (claude |api )?usage has been (capped|exceeded|exhausted)/i,
+  /5-?hour.*limit.*reached/i,
+  /weekly.*limit.*reached/i,
+  /claude pro.*limit/i,
+];
+
+function isUsageLimitMessage(text: string): boolean {
+  if (!text) return false;
+  return USAGE_LIMIT_PATTERNS.some((p) => p.test(text));
+}
+
+function extractResetTime(text: string): string | undefined {
+  const match = text.match(/resets?\s+(.+)/i);
+  return match ? match[1].trim() : undefined;
+}
+
 @Injectable()
 export class ClaudeService implements OnModuleInit {
   private readonly logger = new Logger(ClaudeService.name);
@@ -64,6 +93,12 @@ export class ClaudeService implements OnModuleInit {
           await this.logToFile(prompt, `[ERROR] exit ${code}\n${stderr}`).catch((err) =>
             this.logger.error('Log write failed:', err),
           );
+          if (isUsageLimitMessage(stderr) || isUsageLimitMessage(stdout)) {
+            const snippet = (stderr || stdout).slice(0, 200).trim();
+            this.logger.warn(`Usage limit detected: ${snippet}`);
+            reject(new UsageLimitError(`Claude usage limit reached: ${snippet}`, extractResetTime(snippet)));
+            return;
+          }
           reject(new Error(`Claude exited with code ${code}: ${stderr}`));
         }
       });

@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Bot, type Context } from 'grammy';
+import { Bot, InputFile, type Context } from 'grammy';
 import type { AppConfig } from '../config';
 import { TelegramAuthGuard } from '../telegram.guard';
 import { TelegramAdapter } from '../adapters/telegram.adapter';
@@ -113,6 +113,9 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
             },
             replySilent: async (text: string) => {
                 await this.bot.api.sendMessage(userId, text, { disable_notification: true });
+            },
+            replyDocument: async (content: string, filename: string) => {
+                await this.bot.api.sendDocument(userId, new InputFile(Buffer.from(content, 'utf-8'), filename));
             },
         };
     }

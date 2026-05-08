@@ -124,6 +124,15 @@ export class ProjectService implements OnModuleInit {
     await writeFile(paths.prdMarkdown, markdown);
   }
 
+  async readPrdJson(projectDir: string): Promise<PrdJson | null> {
+    const paths = this.pathsFromProjectDir(projectDir);
+    try {
+      return JSON.parse(await readFile(paths.prdJson, 'utf-8')) as PrdJson;
+    } catch {
+      return null;
+    }
+  }
+
   async getProgress(projectDir: string): Promise<ProgressResult> {
     const paths = this.pathsFromProjectDir(projectDir);
 

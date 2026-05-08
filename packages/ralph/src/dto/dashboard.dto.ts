@@ -26,6 +26,7 @@ const StateSchema = z.enum([
   'REVIEWING_PRD',
   'AWAITING_MODIFICATIONS',
   'RUNNING',
+  'PAUSED',
   'AWAITING_IMPORT_URL',
 ]);
 

@@ -36,6 +36,7 @@ export class WorkflowRouter {
             [State.REVIEWING_PRD, prdReviewStep],
             [State.AWAITING_MODIFICATIONS, modificationsStep],
             [State.RUNNING, runStep],
+            [State.PAUSED, runStep],
             [State.AWAITING_IMPORT_URL, importUrlStep],
         ]);
     }

@@ -100,6 +100,9 @@ export class SessionService implements OnModuleInit {
       projectContext: session.projectContext,
       startedAt: session.startedAt,
       estimatedEndAt: session.estimatedEndAt,
+      pauseRequested: session.pauseRequested,
+      pauseReason: session.pauseReason,
+      usageLimitResetTime: session.usageLimitResetTime,
     };
   }
 
@@ -136,6 +139,9 @@ export class SessionService implements OnModuleInit {
 
         const session: Session = {
           ...persisted,
+          pauseRequested: persisted.pauseRequested ?? false,
+          pauseReason: persisted.pauseReason ?? null,
+          usageLimitResetTime: persisted.usageLimitResetTime ?? null,
           abortController: null,
         };
         this.sessions.set(userId, session);
@@ -167,6 +173,9 @@ export class SessionService implements OnModuleInit {
       prdConversation: null,
       startedAt: null,
       estimatedEndAt: null,
+      pauseRequested: false,
+      pauseReason: null,
+      usageLimitResetTime: null,
     };
   }
 }
