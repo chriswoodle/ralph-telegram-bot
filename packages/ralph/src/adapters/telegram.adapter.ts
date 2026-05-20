@@ -27,6 +27,10 @@ export class TelegramAdapter {
             const arg = (ctx.match ?? '').toString().trim();
             return this.commandHandler.handleResume(this.createContext(ctx), arg || undefined);
         });
+        bot.command('recover', (ctx) => {
+            const arg = (ctx.match ?? '').toString().trim();
+            return this.commandHandler.handleRecover(this.createContext(ctx), arg || undefined);
+        });
         bot.command('status', (ctx) => this.commandHandler.handleStatus(this.createContext(ctx)));
         bot.command('debug', (ctx) => this.commandHandler.handleDebug(this.createContext(ctx)));
         bot.command('help', (ctx) => this.commandHandler.handleHelp(this.createContext(ctx)));
@@ -47,24 +51,50 @@ export class TelegramAdapter {
         return text.replace(/([_*[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
     }
 
+    private async sendWithFallback(
+        send: () => Promise<unknown>,
+        fallback: () => Promise<unknown>,
+    ): Promise<void> {
+        try {
+            await send();
+        } catch (err) {
+            this.logger.warn(`sendMessage failed, trying fallback: ${err}`);
+            try {
+                await fallback();
+            } catch (fallbackErr) {
+                this.logger.error(`Fallback message also failed: ${fallbackErr}`);
+            }
+        }
+    }
+
     private createContext(grammyCtx: Context): WorkflowContext {
         const userId = grammyCtx.from?.id;
         if (!userId) throw new Error('No user ID in context');
 
         return {
             userId,
-            reply: async (text: string) => {
-                await grammyCtx.reply(text);
+            reply: async (text: string, fallback?: string) => {
+                await this.sendWithFallback(
+                    () => grammyCtx.reply(text),
+                    () => grammyCtx.reply(fallback ?? `(message failed to send)\n${text.slice(0, 200)}`),
+                );
             },
-            replyFormatted: async (text: string) => {
-                await grammyCtx.reply(text, { parse_mode: 'Markdown' });
+            replyFormatted: async (text: string, fallback?: string) => {
+                await this.sendWithFallback(
+                    () => grammyCtx.reply(text, { parse_mode: 'Markdown' }),
+                    () => grammyCtx.reply(fallback ?? text),
+                );
             },
-            replySilent: async (text: string) => {
-                await grammyCtx.reply(text, { disable_notification: true });
+            replySilent: async (text: string, fallback?: string) => {
+                await this.sendWithFallback(
+                    () => grammyCtx.reply(text, { disable_notification: true }),
+                    () => grammyCtx.reply(fallback ?? text),
+                );
             },
-            replyDocument: async (content: string, filename: string) => {
-                await grammyCtx.replyWithDocument(
-                    new InputFile(Buffer.from(content, 'utf-8'), filename),
+            replyDocument: async (content: string, filename: string, fallback?: string) => {
+                await this.sendWithFallback(
+                    () => grammyCtx.replyWithDocument(new InputFile(Buffer.from(content, 'utf-8'), filename)),
+                    () => grammyCtx.reply(fallback ?? `Document "${filename}" could not be sent`),
                 );
             },
         };

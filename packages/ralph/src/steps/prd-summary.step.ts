@@ -49,11 +49,12 @@ export class PrdSummaryStep implements StepHandler {
             await ctx.replyFormatted(
                 `📝 *Clarifying Questions*\n\n${result.questions}\n\n` +
                 '_Reply with your answers (e.g., "1A, 2C, 3B" or describe in full sentences)._',
+                'Clarifying questions generated. Please reply with your answers.',
             );
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             this.logger.error(`Error generating questions for user ${ctx.userId}:`, err);
-            await ctx.reply(`❌ Error generating questions: ${message}\n\nPlease try again.`);
+            await ctx.reply(`❌ Error generating questions: ${message}\n\nPlease try again.`, 'Error generating clarifying questions. Please try again.');
         }
     }
 
@@ -94,19 +95,20 @@ export class PrdSummaryStep implements StepHandler {
             });
 
             const displayText = this.formatService.truncateMarkdown(content, 3800);
-            await ctx.replyFormatted(`📋 *Uploaded PRD:*\n\n${displayText}`);
+            await ctx.replyFormatted(`📋 *Uploaded PRD:*\n\n${displayText}`, 'PRD uploaded. Review the content above.');
             await ctx.replyFormatted(
                 '👆 Review the PRD above. Reply with one of:\n\n' +
                 `✅ *"approve"* — Accept and convert to ${this.botName} format\n` +
                 '✏️ *"modify: [your changes]"* — Request specific modifications\n' +
                 '🔄 *"redo"* — Start over with a new summary',
+                'Reply with approve to accept the PRD, or modify to request changes.',
             );
 
             this.logger.log(`User ${ctx.userId} uploaded PRD file "${document.fileName}" for project ${session.projectName}`);
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             this.logger.error(`Error processing uploaded file for user ${ctx.userId}:`, err);
-            await ctx.reply(`Failed to process the uploaded file: ${message}`);
+            await ctx.reply(`Failed to process the uploaded file: ${message}`, 'Failed to process the uploaded file. Please try again.');
         }
     }
 }

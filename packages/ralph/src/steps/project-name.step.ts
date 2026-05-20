@@ -45,11 +45,12 @@ export class ProjectNameStep implements StepHandler {
                 'Now describe what you want to build. Give me a summary of the feature/product — ' +
                 "as detailed as you like. I'll ask clarifying questions before generating the PRD.\n\n" +
                 'Or upload a `.md` file with your PRD to skip straight to review.',
+                'Project initialized. Now describe what you want to build.',
             );
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             this.logger.error(`Failed to init project ${projectName} for user ${ctx.userId}:`, err);
-            await ctx.reply(`❌ Failed to initialize project: ${message}`);
+            await ctx.reply(`❌ Failed to initialize project: ${message}`, 'Failed to initialize the project. Please try again.');
         }
     }
 }

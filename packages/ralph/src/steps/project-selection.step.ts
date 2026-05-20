@@ -50,11 +50,12 @@ export class ProjectSelectionStep implements StepHandler {
                 "Describe the new feature you want to add. I'll ask clarifying questions " +
                 "before generating a PRD that builds on what's already there.\n\n" +
                 'Or upload a `.md` file with your PRD to skip straight to review.',
+                'Project selected. Describe the new feature you want to add.',
             );
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             this.logger.error(`Error gathering context for ${selected.name}:`, err);
-            await ctx.reply(`❌ Error loading project: ${message}`);
+            await ctx.reply(`❌ Error loading project: ${message}`, 'Error loading the selected project. Please try again.');
         }
     }
 }

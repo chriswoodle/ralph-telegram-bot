@@ -54,6 +54,7 @@ export class ImportUrlStep implements StepHandler {
         await ctx.replyFormatted(
             `⏳ Cloning repository \`${repoName}\`...\n` +
             '_This may take a few minutes for large repositories._',
+            'Cloning repository. This may take a few minutes for large repositories.',
         );
 
         try {
@@ -83,6 +84,7 @@ export class ImportUrlStep implements StepHandler {
             } else {
                 await ctx.replyFormatted(
                     `❌ Failed to clone repository.\n\nError: \`${message}\``,
+                    'Failed to clone the repository. Please check the URL and try again.',
                 );
             }
             return;
@@ -111,7 +113,7 @@ export class ImportUrlStep implements StepHandler {
             successMsg += `\n\n⚠️ Warnings:\n${warnings.map((w) => `• ${w}`).join('\n')}`;
         }
 
-        await ctx.replyFormatted(successMsg);
+        await ctx.replyFormatted(successMsg, 'Repository imported successfully. Use /feature to add features.');
     }
 
     private async validateRepository(projectDir: string): Promise<string[]> {

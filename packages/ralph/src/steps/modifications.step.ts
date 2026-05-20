@@ -41,7 +41,7 @@ export class ModificationsStep implements StepHandler {
             });
 
             const filename = `${(session.projectName ?? 'prd').replace(/[^a-zA-Z0-9_-]/g, '_')}-prd.md`;
-            await ctx.replyDocument(result.prd, filename);
+            await ctx.replyDocument(result.prd, filename, 'Updated PRD document could not be sent.');
             await ctx.replyFormatted(
                 'Reply *"approve"* to accept, send more modifications, or *"redo"* to start over.',
             );
@@ -49,7 +49,7 @@ export class ModificationsStep implements StepHandler {
             this.sessionService.updateSession(ctx.userId, { state: State.REVIEWING_PRD });
             const message = err instanceof Error ? err.message : String(err);
             this.logger.error(`Error applying modifications for user ${ctx.userId}:`, err);
-            await ctx.reply(`❌ Error applying modifications: ${message}\n\nPlease try again.`);
+            await ctx.reply(`❌ Error applying modifications: ${message}\n\nPlease try again.`, 'Error applying modifications. Please try again.');
         }
     }
 }

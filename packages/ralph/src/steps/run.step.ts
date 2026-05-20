@@ -75,11 +75,13 @@ export class RunStep implements StepHandler {
         if (session.state === State.PAUSED) {
             await ctx.reply(
                 `⏸ ${this.botName} is paused. Use /resume to continue or /stop to cancel.`,
+                'The bot is paused. Use /resume to continue or /stop to cancel.',
             );
             return;
         }
         await ctx.reply(
             `🔄 ${this.botName} is currently running. Use /progress to check status, /pause to pause, or /stop to cancel.`,
+            'The bot is currently running. Use /progress, /pause, or /stop.',
         );
     }
 
@@ -113,6 +115,7 @@ export class RunStep implements StepHandler {
             const summary = this.formatService.formatProgress(progress);
             await ctx.replyFormatted(
                 `✅ *Nothing to resume — all ${stories.length} stories are complete.*\n\n${summary}`,
+                'All stories are already complete. Nothing to resume.',
             );
             return;
         }
@@ -139,6 +142,7 @@ export class RunStep implements StepHandler {
         await ctx.replyFormatted(
             `🔄 *${this.botName} is resuming from story ${startFromIndex + 1}/${stories.length}!*\n\n` +
             'Use /progress to check status, /pause to pause, /stop to cancel.',
+            'Resuming the run. Use /progress to check status, /pause to pause, or /stop to cancel.',
         );
 
         this.dispatchLoop(ctx, projectDir, stories, abortController, startFromIndex);
@@ -155,12 +159,12 @@ export class RunStep implements StepHandler {
         }
 
         if (session.state === State.RUNNING) {
-            await ctx.reply(`${this.botName} is already running! Use /progress to check status.`);
+            await ctx.reply(`${this.botName} is already running! Use /progress to check status.`, 'The bot is already running. Use /progress to check status.');
             return;
         }
 
         if (session.state === State.PAUSED) {
-            await ctx.reply(`${this.botName} is paused. Use /resume to continue or /stop to cancel.`);
+            await ctx.reply(`${this.botName} is paused. Use /resume to continue or /stop to cancel.`, 'The bot is paused. Use /resume to continue or /stop to cancel.');
             return;
         }
 
@@ -186,6 +190,7 @@ export class RunStep implements StepHandler {
             `🚀 *${this.botName} is starting!*\n` +
             `Stories: ${stories.length}\n\n` +
             'Use /progress to check status, /pause to pause, /stop to cancel.',
+            'Run started. Use /progress to check status, /pause to pause, or /stop to cancel.',
         );
 
         this.dispatchLoop(ctx, projectDir, stories, abortController, 0);
@@ -215,7 +220,7 @@ export class RunStep implements StepHandler {
                     });
 
                     try {
-                        await ctx.replySilent(status.message);
+                        await ctx.replySilent(status.message, 'Status update unavailable.');
                     } catch (err) {
                         this.logger.warn('Failed to send progress to user:', err);
                     }
@@ -233,7 +238,7 @@ export class RunStep implements StepHandler {
                 const message = err instanceof Error ? err.message : String(err);
 
                 this.logger.error(`Ralph fatal error for user ${ctx.userId}:`, err);
-                await ctx.reply(`❌ ${this.botName} encountered a fatal error: ${message}`);
+                await ctx.reply(`❌ ${this.botName} encountered a fatal error: ${message}`, 'A fatal error occurred. Use /start to begin again.');
             });
     }
 
@@ -269,7 +274,7 @@ export class RunStep implements StepHandler {
                             const s = this.sessionService.getSession(ctx.userId);
                             if (s.state !== State.PAUSED || s.pauseReason !== 'usage_limit') return;
                             try {
-                                await ctx.reply(`🔄 Usage limit reset — ${this.botName} is auto-resuming...`);
+                                await ctx.reply(`🔄 Usage limit reset — ${this.botName} is auto-resuming...`, 'Usage limit reset. Auto-resuming now.');
                                 await this.resumeRun(ctx);
                             } catch (err) {
                                 this.logger.error(`Auto-resume for user ${ctx.userId} failed:`, err);
@@ -281,10 +286,12 @@ export class RunStep implements StepHandler {
                 }
                 await ctx.replyFormatted(
                     `⏸ *${this.botName} paused at story ${pausedAt}.*\nUsage limit reached. ${resumeNote}`,
+                    'Run paused due to usage limit. Use /resume to retry or /stop to cancel.',
                 );
             } else {
                 await ctx.replyFormatted(
                     `⏸ *${this.botName} paused at story ${pausedAt}.*\nPause requested. Use /resume to continue or /stop to cancel.`,
+                    'Run paused. Use /resume to continue or /stop to cancel.',
                 );
             }
             return;
@@ -304,13 +311,14 @@ export class RunStep implements StepHandler {
 
         if (result.completed) {
             this.logger.log(`Ralph completed for user ${ctx.userId}, project ${projectDir}`);
-            await ctx.replyFormatted(`🎉 *${this.botName} finished successfully!*\n\n${summary}`);
+            await ctx.replyFormatted(`🎉 *${this.botName} finished successfully!*\n\n${summary}`, 'Run finished successfully.');
         } else {
             this.logger.log(
                 `Ralph stopped after ${result.iterations} stories for user ${ctx.userId}`,
             );
             await ctx.replyFormatted(
                 `⚠️ *${this.botName} stopped after ${result.iterations} stories.*\n\n${summary}`,
+                'Run stopped before completing all stories.',
             );
         }
     }

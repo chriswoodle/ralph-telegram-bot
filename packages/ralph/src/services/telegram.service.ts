@@ -102,20 +102,58 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
         }
     }
 
+    private async sendWithFallback(
+        userId: number,
+        send: () => Promise<unknown>,
+        fallback: () => Promise<unknown>,
+        customFallback?: string,
+    ): Promise<void> {
+        try {
+            await send();
+        } catch (err) {
+            this.logger.warn(`sendMessage failed for user ${userId}, trying fallback: ${err}`);
+            try {
+                await (customFallback !== undefined ? this.bot.api.sendMessage(userId, customFallback) : fallback());
+            } catch (fallbackErr) {
+                this.logger.error(`Fallback message also failed for user ${userId}: ${fallbackErr}`);
+            }
+        }
+    }
+
     private createSyntheticContext(userId: number): WorkflowContext {
         return {
             userId,
-            reply: async (text: string) => {
-                await this.bot.api.sendMessage(userId, text);
+            reply: async (text: string, fallback?: string) => {
+                await this.sendWithFallback(
+                    userId,
+                    () => this.bot.api.sendMessage(userId, text),
+                    () => this.bot.api.sendMessage(userId, `(message failed to send)\n${text.slice(0, 200)}`),
+                    fallback,
+                );
             },
-            replyFormatted: async (text: string) => {
-                await this.bot.api.sendMessage(userId, text, { parse_mode: 'Markdown' });
+            replyFormatted: async (text: string, fallback?: string) => {
+                await this.sendWithFallback(
+                    userId,
+                    () => this.bot.api.sendMessage(userId, text, { parse_mode: 'Markdown' }),
+                    () => this.bot.api.sendMessage(userId, text),
+                    fallback,
+                );
             },
-            replySilent: async (text: string) => {
-                await this.bot.api.sendMessage(userId, text, { disable_notification: true });
+            replySilent: async (text: string, fallback?: string) => {
+                await this.sendWithFallback(
+                    userId,
+                    () => this.bot.api.sendMessage(userId, text, { disable_notification: true }),
+                    () => this.bot.api.sendMessage(userId, text),
+                    fallback,
+                );
             },
-            replyDocument: async (content: string, filename: string) => {
-                await this.bot.api.sendDocument(userId, new InputFile(Buffer.from(content, 'utf-8'), filename));
+            replyDocument: async (content: string, filename: string, fallback?: string) => {
+                await this.sendWithFallback(
+                    userId,
+                    () => this.bot.api.sendDocument(userId, new InputFile(Buffer.from(content, 'utf-8'), filename)),
+                    () => this.bot.api.sendMessage(userId, `Document "${filename}" could not be sent`),
+                    fallback,
+                );
             },
         };
     }

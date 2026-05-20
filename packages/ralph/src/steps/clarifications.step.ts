@@ -49,18 +49,20 @@ export class ClarificationsStep implements StepHandler {
             });
 
             const filename = `${session.projectName!.replace(/[^a-zA-Z0-9_-]/g, '_')}-prd.md`;
-            await ctx.replyDocument(result.prd, filename);
+            await ctx.replyDocument(result.prd, filename, 'PRD document could not be sent.');
             await ctx.replyFormatted(
                 '👆 Review the PRD above. Reply with one of:\n\n' +
                 `✅ *"approve"* — Accept and convert to ${this.botName} format\n` +
                 '✏️ *"modify: [your changes]"* — Request specific modifications\n' +
                 '🔄 *"redo"* — Start over with a new summary',
+                'PRD generated. Reply with approve to accept or modify to request changes.',
             );
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             this.logger.error(`Error generating PRD for user ${ctx.userId}:`, err);
             await ctx.reply(
                 `❌ Error generating PRD: ${message}\n\nPlease try sending your answers again.`,
+                'Error generating PRD. Please try sending your answers again.',
             );
         }
     }

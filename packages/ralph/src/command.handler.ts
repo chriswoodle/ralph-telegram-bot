@@ -33,6 +33,7 @@ export class CommandHandler {
             "I'll help you plan and execute projects using AI agents.\n\n" +
             "Let's start a new project. What would you like to name it?\n\n" +
             '_Use lowercase letters, numbers, and hyphens (e.g., `task-manager`, `my-saas-app`)_',
+            'Welcome! What would you like to name your new project?',
         );
     }
 
@@ -65,6 +66,7 @@ export class CommandHandler {
             '📂 *Select a project to add a feature to:*\n\n' +
             lines.join('\n') +
             '\n\n_Reply with the number or project name._',
+            'Select a project to add a feature to. Reply with the number or project name.',
         );
     }
 
@@ -78,7 +80,7 @@ export class CommandHandler {
         }
 
         const progress = await this.projectService.getProgress(session.projectDir);
-        await ctx.replyFormatted(this.formatService.formatProgress(progress));
+        await ctx.replyFormatted(this.formatService.formatProgress(progress), 'Progress unavailable. Use /progress to retry.');
     }
 
     async handleLog(ctx: WorkflowContext): Promise<void> {
@@ -93,6 +95,7 @@ export class CommandHandler {
         const log = await this.projectService.getProgressLog(session.projectDir);
         await ctx.replyFormatted(
             `📜 *Progress Log:*\n\n\`\`\`\n${this.formatService.truncate(log, 3800)}\n\`\`\``,
+            'Progress log unavailable. Use /log to retry.',
         );
     }
 
@@ -101,7 +104,7 @@ export class CommandHandler {
         this.logger.log(`/stop from user ${ctx.userId}, state: ${session.state}`);
 
         if (session.state !== State.RUNNING && session.state !== State.PAUSED) {
-            await ctx.reply(`${this.botName} is not currently running.`);
+            await ctx.reply(`${this.botName} is not currently running.`, 'The bot is not currently running.');
             return;
         }
 
@@ -115,7 +118,7 @@ export class CommandHandler {
                 abortController: null,
                 estimatedEndAt: null,
             });
-            await ctx.reply(`🛑 Cleared paused ${this.botName} session.`);
+            await ctx.reply(`🛑 Cleared paused ${this.botName} session.`, 'Paused session cleared.');
             return;
         }
 
@@ -123,7 +126,7 @@ export class CommandHandler {
             this.sessionService.updateSession(ctx.userId, { pauseRequested: false, pauseReason: null });
             session.abortController.abort();
             this.logger.log(`Abort requested for user ${ctx.userId}`);
-            await ctx.reply(`🛑 Stopping ${this.botName} after current iteration completes...`);
+            await ctx.reply(`🛑 Stopping ${this.botName} after current iteration completes...`, 'Stop requested. The bot will stop after the current iteration.');
         }
     }
 
@@ -132,12 +135,12 @@ export class CommandHandler {
         this.logger.log(`/pause from user ${ctx.userId}, state: ${session.state}`);
 
         if (session.state === State.PAUSED) {
-            await ctx.reply(`${this.botName} is already paused. Use /resume to continue.`);
+            await ctx.reply(`${this.botName} is already paused. Use /resume to continue.`, 'The bot is already paused. Use /resume to continue.');
             return;
         }
 
         if (session.state !== State.RUNNING) {
-            await ctx.reply(`${this.botName} is not currently running.`);
+            await ctx.reply(`${this.botName} is not currently running.`, 'The bot is not currently running.');
             return;
         }
 
@@ -149,8 +152,53 @@ export class CommandHandler {
         if (session.abortController) {
             session.abortController.abort();
             this.logger.log(`Pause requested for user ${ctx.userId}`);
-            await ctx.reply(`⏸ Pausing ${this.botName} after current iteration completes. Use /resume to continue.`);
+            await ctx.reply(`⏸ Pausing ${this.botName} after current iteration completes. Use /resume to continue.`, 'Pause requested. The bot will pause after the current iteration.');
         }
+    }
+
+    async handleRecover(ctx: WorkflowContext, projectArg?: string): Promise<void> {
+        const session = this.sessionService.getSession(ctx.userId);
+        this.logger.log(`/recover from user ${ctx.userId}, arg: ${projectArg ?? '(none)'}`);
+
+        if (session.state === State.RUNNING) {
+            await ctx.reply(`${this.botName} is already running. Use /stop first.`, 'The bot is already running. Use /stop first.');
+            return;
+        }
+
+        if (!projectArg) {
+            await this.listProjectsWithIncompleteStories(ctx);
+            return;
+        }
+
+        const loaded = await this.loadProjectIntoSession(ctx, projectArg);
+        if (!loaded) return;
+        await this.runStep.resumeRun(ctx);
+    }
+
+    private async listProjectsWithIncompleteStories(ctx: WorkflowContext): Promise<void> {
+        const projects = await this.projectService.listProjects(this.projectService.projectsDir);
+        const incomplete: { name: string; done: number; total: number }[] = [];
+
+        for (const p of projects) {
+            const progress = await this.projectService.getProgress(p.projectDir);
+            if (progress.total > 0 && progress.done < progress.total) {
+                incomplete.push({ name: p.name, done: progress.done, total: progress.total });
+            }
+        }
+
+        if (incomplete.length === 0) {
+            await ctx.reply('No projects with incomplete stories found. All done!');
+            return;
+        }
+
+        const lines = incomplete
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((p) => `• \`${p.name}\` — ${p.done}/${p.total} stories done`);
+
+        await ctx.replyFormatted(
+            `🔴 *Projects with incomplete stories:*\n${lines.join('\n')}\n\n_Run \`/recover <name>\` to resume from the first incomplete story._`,
+            'Projects with incomplete stories listed. Run /recover with a project name to resume.',
+        );
     }
 
     async handleResume(ctx: WorkflowContext, projectArg?: string): Promise<void> {
@@ -158,7 +206,7 @@ export class CommandHandler {
         this.logger.log(`/resume from user ${ctx.userId}, state: ${session.state}, arg: ${projectArg ?? '(none)'}`);
 
         if (session.state === State.RUNNING) {
-            await ctx.reply(`${this.botName} is already running.`);
+            await ctx.reply(`${this.botName} is already running.`, 'The bot is already running.');
             return;
         }
 
@@ -171,7 +219,7 @@ export class CommandHandler {
         }
 
         if (session.state !== State.PAUSED && session.state !== State.IDLE) {
-            await ctx.reply(`Cannot resume from state \`${session.state}\`. Use /start or /feature.`);
+            await ctx.reply(`Cannot resume from state \`${session.state}\`. Use /start or /feature.`, 'Cannot resume from the current state. Use /start or /feature.');
             return;
         }
 
@@ -188,19 +236,19 @@ export class CommandHandler {
             : projects.filter((p) => p.name.toLowerCase().includes(needle));
 
         if (candidates.length === 0) {
-            await ctx.reply(`No project matched \`${identifier}\`. Use /resume with no argument to list resumable projects.`);
+            await ctx.reply(`No project matched \`${identifier}\`. Use /resume with no argument to list resumable projects.`, 'No matching project found. Use /resume to list resumable projects.');
             return false;
         }
         if (candidates.length > 1) {
             const names = candidates.map((p) => `\`${p.name}\``).join(', ');
-            await ctx.replyFormatted(`Multiple projects matched \`${identifier}\`: ${names}. Be more specific.`);
+            await ctx.replyFormatted(`Multiple projects matched \`${identifier}\`: ${names}. Be more specific.`, 'Multiple projects matched. Please be more specific.');
             return false;
         }
 
         const project = candidates[0];
         const prdJson = await this.projectService.readPrdJson(project.projectDir);
         if (!prdJson || !Array.isArray(prdJson.userStories) || prdJson.userStories.length === 0) {
-            await ctx.reply(`Project \`${project.name}\` has no PRD or user stories — cannot resume.`);
+            await ctx.reply(`Project \`${project.name}\` has no PRD or user stories — cannot resume.`, 'This project has no PRD or user stories and cannot be resumed.');
             return false;
         }
 
@@ -238,6 +286,7 @@ export class CommandHandler {
 
         await ctx.replyFormatted(
             `📂 *Projects with pending work:*\n${lines.join('\n')}\n\n_Run \`/resume <name>\` to continue one._`,
+            'Projects with pending work listed. Run /resume with a project name to continue.',
         );
     }
 
@@ -267,7 +316,7 @@ export class CommandHandler {
             }
         }
 
-        await ctx.replyFormatted(lines.join('\n'));
+        await ctx.replyFormatted(lines.join('\n'), 'Session status unavailable. Use /status to retry.');
     }
 
     async handleDebug(ctx: WorkflowContext): Promise<void> {
@@ -279,7 +328,7 @@ export class CommandHandler {
         const historyText = this.formatService.formatSessionHistoryForDebug(history);
         const full = header + historyText;
 
-        await ctx.replyFormatted(this.formatService.truncate(full, 3800));
+        await ctx.replyFormatted(this.formatService.truncate(full, 3800), 'Debug info unavailable. Use /debug to retry.');
     }
 
     async handleImport(ctx: WorkflowContext): Promise<void> {
@@ -309,7 +358,9 @@ export class CommandHandler {
             `/stop — Cancel a running ${this.botName} loop\n` +
             `/pause — Pause ${this.botName} after the current story\n` +
             `/resume [project] — Resume a paused/stopped loop, or pick up an existing project\n` +
+            `/recover [project] — Resume a failed run from the first incomplete story\n` +
             '/help — Show this message',
+            'Help unavailable. Try /start to begin a new project.',
         );
     }
 }

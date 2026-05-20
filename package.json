@@ -2,7 +2,7 @@
     "name": "ralph-telegram-bot",
     "version": "1.0.0",
     "description": "Telegram bot for running Ralph autonomous agent loops",
-    "packageManager": "yarn@4.12.0",
+    "packageManager": "yarn@4.15.0",
     "engines": {
         "node": ">=20.0.0"
     },

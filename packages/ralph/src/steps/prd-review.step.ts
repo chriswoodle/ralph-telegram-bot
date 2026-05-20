@@ -61,7 +61,7 @@ export class PrdReviewStep implements StepHandler {
     private async convertAndRun(ctx: WorkflowContext): Promise<void> {
         const session = this.sessionService.getSession(ctx.userId);
 
-        await ctx.reply(`🔄 Converting PRD to ${this.botName} format...`);
+        await ctx.reply(`🔄 Converting PRD to ${this.botName} format...`, 'Converting PRD to the required format.');
 
         try {
             this.logger.log(
@@ -76,10 +76,11 @@ export class PrdReviewStep implements StepHandler {
 
             this.sessionService.updateSession(ctx.userId, { prdJson });
 
-            await ctx.replyFormatted(this.formatService.formatPrd(prdJson));
+            await ctx.replyFormatted(this.formatService.formatPrd(prdJson), 'PRD summary unavailable. Reply with run to start.');
             await ctx.replyFormatted(
                 `✅ PRD converted! ${prdJson.userStories.length} stories ready.\n\n` +
                 `🚀 Reply *"run"* to start ${this.botName}.`,
+                'PRD converted successfully. Reply with run to start.',
             );
 
             this.sessionService.updateSession(ctx.userId, { state: State.REVIEWING_PRD });
@@ -88,6 +89,7 @@ export class PrdReviewStep implements StepHandler {
             this.logger.error(`Error converting PRD for user ${ctx.userId}:`, err);
             await ctx.reply(
                 `❌ Error converting to ${this.botName} format: ${message}\n\nPlease try approving again.`,
+                'Error converting PRD. Please try approving again.',
             );
         }
     }

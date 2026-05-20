@@ -2,10 +2,10 @@ import type { StateValue } from './session.types';
 
 export interface WorkflowContext {
     userId: number;
-    reply(text: string): Promise<void>;
-    replyFormatted(text: string): Promise<void>;
-    replySilent(text: string): Promise<void>;
-    replyDocument(content: string, filename: string): Promise<void>;
+    reply(text: string, fallback?: string): Promise<void>;
+    replyFormatted(text: string, fallback?: string): Promise<void>;
+    replySilent(text: string, fallback?: string): Promise<void>;
+    replyDocument(content: string, filename: string, fallback?: string): Promise<void>;
 }
 
 export interface IncomingDocument {
