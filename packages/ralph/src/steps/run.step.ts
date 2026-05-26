@@ -224,6 +224,15 @@ export class RunStep implements StepHandler {
                     } catch (err) {
                         this.logger.warn('Failed to send progress to user:', err);
                     }
+
+                    if (status.logContent) {
+                        const filename = `timeout-story-${status.iteration}.log`;
+                        try {
+                            await ctx.replyDocument(status.logContent, filename, `Timeout log for story ${status.iteration} could not be sent.`);
+                        } catch (err) {
+                            this.logger.warn(`Failed to send timeout log for story ${status.iteration}:`, err);
+                        }
+                    }
                 },
             })
             .then((result) => this.handleLoopResult(ctx, projectDir, result))

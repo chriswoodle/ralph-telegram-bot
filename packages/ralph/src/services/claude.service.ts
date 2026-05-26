@@ -20,6 +20,21 @@ export class UsageLimitError extends Error {
   }
 }
 
+export class TimeoutError extends Error {
+  readonly name = 'TimeoutError';
+  readonly logContent: string;
+  readonly logPath: string;
+  constructor(message: string, logContent: string, logPath: string) {
+    super(message);
+    this.logContent = logContent;
+    this.logPath = logPath;
+  }
+}
+
+export class AuthError extends Error {
+  readonly name = 'AuthError';
+}
+
 const USAGE_LIMIT_PATTERNS = [
   /you.?ve hit your (usage |claude |daily |weekly |monthly )?limit/i,
   /claude.*usage.*limit.*reached/i,
@@ -60,6 +75,7 @@ export class ClaudeService implements OnModuleInit {
 
   async runClaude(opts: RunClaudeOpts): Promise<string> {
     const { prompt, cwd, signal } = opts;
+    const timeoutMs = this.configService.get('CLAUDE_TIMEOUT_MS', 1800000);
 
     this.logger.log(`Running in ${cwd}, prompt length: ${prompt.length}`);
 
@@ -72,6 +88,13 @@ export class ClaudeService implements OnModuleInit {
 
       let stdout = '';
       let stderr = '';
+      let timedOut = false;
+
+      const timeoutHandle = setTimeout(() => {
+        timedOut = true;
+        this.logger.warn(`Claude timed out after ${timeoutMs}ms in ${cwd}, killing process`);
+        child.kill('SIGTERM');
+      }, timeoutMs);
 
       child.stdout.on('data', (chunk: Buffer) => {
         stdout += chunk.toString();
@@ -82,6 +105,16 @@ export class ClaudeService implements OnModuleInit {
       });
 
       child.on('close', async (code) => {
+        clearTimeout(timeoutHandle);
+        if (timedOut) {
+          const logContent = `[TIMEOUT after ${timeoutMs}ms]\n=== STDOUT ===\n${stdout}\n=== STDERR ===\n${stderr}`;
+          const logPath = await this.logToFile(prompt, logContent, true).catch((e) => {
+            this.logger.error('Log write failed:', e);
+            return undefined;
+          });
+          reject(new TimeoutError(`Claude timed out after ${timeoutMs}ms`, logContent, logPath ?? ''));
+          return;
+        }
         if (code === 0 || stdout.length > 0) {
           this.logger.log(`Exited code ${code}, output length: ${stdout.length}`);
           await this.logToFile(prompt, stdout).catch((err) =>
@@ -104,6 +137,7 @@ export class ClaudeService implements OnModuleInit {
       });
 
       child.on('error', (err) => {
+        clearTimeout(timeoutHandle);
         this.logger.error('Spawn error:', err);
         reject(err);
       });
@@ -113,8 +147,55 @@ export class ClaudeService implements OnModuleInit {
     });
   }
 
-  private async logToFile(input: string, output: string): Promise<void> {
-    if (!this.configService.get('CLAUDE_LOG_IO')) return;
+  async healthCheck(cwd: string): Promise<void> {
+    const timeoutMs = 30_000;
+    this.logger.log(`Running Claude health check in ${cwd}`);
+
+    return new Promise((resolve, reject) => {
+      const child = spawn(this.claudePath, ['--print', '--dangerously-skip-permissions'], {
+        cwd,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+
+      let hasOutput = false;
+      let resolved = false;
+
+      const handle = setTimeout(() => {
+        child.kill('SIGTERM');
+      }, timeoutMs);
+
+      const onOutput = () => {
+        if (!hasOutput) {
+          hasOutput = true;
+          clearTimeout(handle);
+          resolved = true;
+          child.kill('SIGTERM');
+          resolve();
+        }
+      };
+
+      child.stdout.on('data', onOutput);
+      child.stderr.on('data', onOutput);
+
+      child.on('close', () => {
+        clearTimeout(handle);
+        if (!resolved) {
+          reject(new AuthError('Claude health check: no output produced'));
+        }
+      });
+
+      child.on('error', (err) => {
+        clearTimeout(handle);
+        if (!resolved) reject(err);
+      });
+
+      child.stdin!.write('reply with only the word: ok');
+      child.stdin!.end();
+    });
+  }
+
+  private async logToFile(input: string, output: string, force = false): Promise<string | undefined> {
+    if (!force && !this.configService.get('CLAUDE_LOG_IO')) return undefined;
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     const dir = this.configService.get('CLAUDE_LOG_DIR', './logs/claude');
     await mkdir(dir, { recursive: true });
@@ -122,5 +203,6 @@ export class ClaudeService implements OnModuleInit {
     const content = `=== INPUT ===\n${input}\n\n=== OUTPUT ===\n${output}\n`;
     await writeFile(path, content, 'utf-8');
     this.logger.log(`Logged I/O to ${path}`);
+    return path;
   }
 }

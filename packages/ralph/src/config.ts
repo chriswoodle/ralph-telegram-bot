@@ -1,4 +1,4 @@
-import { str, port, bool, cleanEnv } from 'envalid';
+import { str, port, bool, num, cleanEnv } from 'envalid';
 
 export const configuration = () => {
     const config = cleanEnv(process.env, {
@@ -54,6 +54,16 @@ export const configuration = () => {
             desc: 'The allowed users for the Telegram bot.',
             example: '1234567890,1234567891',
             default: '',
+        }),
+        CLAUDE_TIMEOUT_MS: num({
+            desc: 'Max ms to wait for a single Claude story before killing it.',
+            example: '1800000',
+            default: 1800000, // 30 minutes
+        }),
+        CLAUDE_STARTUP_TIMEOUT_MS: num({
+            desc: 'Max ms to wait for Claude to produce any output before assuming an auth hang.',
+            example: '60000',
+            default: 60000, // 60 seconds
         }),
         CLAUDE_LOG_IO: bool({
             desc: 'The log IO for the Claude API.',

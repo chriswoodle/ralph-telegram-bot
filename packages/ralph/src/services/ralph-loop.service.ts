@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ClaudeService, UsageLimitError } from './claude.service';
+import { AuthError, ClaudeService, TimeoutError, UsageLimitError } from './claude.service';
 import { ResourceLoaderService } from './resource-loader.service';
 import { ProjectService } from './project.service';
 import type { AppConfig } from '../config';
@@ -14,6 +14,8 @@ export interface RalphStatus {
   message: string;
   startedAt: number;
   estimatedEndAt: number | null;
+  logContent?: string;
+  logPath?: string;
 }
 
 export interface RalphLoopResult {
@@ -75,6 +77,26 @@ export class RalphLoopService {
     await this.projectService.ensureProgressFile(projectDir);
 
     const loopStartTime = Date.now();
+
+    try {
+      await this.claude.healthCheck(projectDir);
+      this.logger.log('Claude health check passed');
+    } catch (err) {
+      if (err instanceof AuthError) {
+        this.logger.warn('Claude health check failed — proceeding anyway');
+        await onProgress({
+          type: 'auth_warning',
+          iteration: startFromIndex + 1,
+          totalStories,
+          message: `⚠️ Claude health check warning: no response to test prompt.\n\nPossible auth or startup issue — if tasks fail, run \`claude\` in your terminal to re-authenticate or complete any setup prompts.`,
+          startedAt: loopStartTime,
+          estimatedEndAt: null,
+        });
+      } else {
+        throw err;
+      }
+    }
+
     const iterationDurations: number[] = [];
 
     for (let i = startFromIndex; i < totalStories; i++) {
@@ -177,6 +199,23 @@ export class RalphLoopService {
             pausedAtIteration: storyNum,
             resetTime: err.resetTime,
           };
+        }
+
+        if (err instanceof TimeoutError) {
+          this.logger.warn(`Story ${storyNum} timed out — log at ${err.logPath}`);
+          await onProgress({
+            type: 'timeout',
+            iteration: storyNum,
+            totalStories,
+            currentStory: story,
+            message: `⏱ Story ${storyNum}/${totalStories} (${story.id}) timed out. Log saved to \`${err.logPath}\`. Continuing to next story...`,
+            startedAt: loopStartTime,
+            estimatedEndAt: null,
+            logContent: err.logContent,
+            logPath: err.logPath,
+          });
+          await new Promise((r) => setTimeout(r, 2000));
+          continue;
         }
 
         if (error.name === 'AbortError') {
